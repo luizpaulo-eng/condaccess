@@ -31,16 +31,16 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 
 * **Orientador do PI:** Prof. Marco Tulio Vilela Bueno Jardim
 
-| Integrante | RA | Função Principal |
-| :--- | :---: | :--- |
-| **Ana Carolina de Lima Pacheco** | 24212268 | Banco de Dados (PostgreSQL / Supabase) |
-| **Jennifer Dantas de Oliveira** | 24209711 | Backend (FastAPI / Autenticação) |
-| **Lucas Santos Baptista** | 24220407 | Frontend (Acessibilidade WCAG / ARIA) |
-| **Luiz Paulo Santos de Aboim Ingles** | 24208273 | DevOps & CI/CD (GitHub Actions / Cloud) |
-| **Marcelo Pereira da Silva** | 24221108 | Backend (Rotas REST API / Lógica de Negócios) |
-| **Paulo Eduardo Augusto Ronqui** | 1805498 | Frontend (Interfaces React.js) |
-| **Pricila da Silva Veiga** | 2104653 | Gerenciamento de Projeto & Documentação ABNT |
-| **Rodrigo Inocencio da Silva** | 24214663 | Relacionamento com a Comunidade Externa |
+| Integrante | Função Principal |
+| :--- | :--- |
+| **Ana Carolina de Lima Pacheco** | Banco de Dados (PostgreSQL / Supabase) |
+| **Jennifer Dantas de Oliveira** | Backend (FastAPI / Autenticação) |
+| **Lucas Santos Baptista** | Frontend (Acessibilidade WCAG / ARIA) |
+| **Luiz Paulo Santos de Aboim Ingles** ([@luizpaulo-eng](https://github.com/luizpaulo-eng)) | DevOps & CI/CD (GitHub Actions / Cloud) |
+| **Marcelo Pereira da Silva** | Backend (Rotas REST API / Lógica de Negócios) |
+| **Paulo Eduardo Augusto Ronqui** | Frontend (Interfaces React.js) |
+| **Pricila da Silva Veiga** | Gerenciamento de Projeto & Documentação ABNT |
+| **Rodrigo Inocencio da Silva** | Relacionamento com a Comunidade Externa |
 
 ---
 
