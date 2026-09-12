@@ -42,6 +42,13 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 | **Pricila da Silva Veiga** | Gerenciamento de Projeto & Documentação ABNT |
 | **Rodrigo Inocencio da Silva** | Relacionamento com a Comunidade Externa |
 
+<br>
+
+<p align="center">
+  <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp" width="160"/><br>
+  <sub><b>Grupo de Projeto Integrador — Engenharia de Computação & Ciência de Dados (UNIVESP)</b></sub>
+</p>
+
 ---
 
 ## 🏗️ Arquitetura e Tecnologias
