@@ -26,7 +26,10 @@ O controle manual feito em papel no **Condomínio Residencial Jardins do Tatuap�
 Desenvolver e aplicar um sistema web acessível e moderno que automatize o registro de visitas e o recebimento de encomendas, enviando alertas em tempo real e garantindo navegabilidade universal via leitores de tela e comandos de teclado.
 
 ---
-
+<p align="center">
+  <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp" width="160"/><br>
+  <sub><b>Grupo de Projeto Integrador — Engenharia de Computação & Ciência de Dados (UNIVESP)</b></sub>
+</p>
 ## 👥 Integrantes do Grupo e Papéis
 
 * **Orientador do PI:** Prof. Marco Tulio Vilela Bueno Jardim
@@ -41,13 +44,6 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 | **Paulo Eduardo Augusto Ronqui** | Frontend (Interfaces React.js) |
 | **Pricila da Silva Veiga** | Gerenciamento de Projeto & Documentação ABNT |
 | **Rodrigo Inocencio da Silva** | Relacionamento com a Comunidade Externa |
-
-<br>
-
-<p align="center">
-  <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp" width="160"/><br>
-  <sub><b>Grupo de Projeto Integrador — Engenharia de Computação & Ciência de Dados (UNIVESP)</b></sub>
-</p>
 
 ---
 
