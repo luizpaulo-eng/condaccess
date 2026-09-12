@@ -27,9 +27,7 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 
 ---
 <p align="center">
-  <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp" width="160"/><br>
-  <sub><b>Grupo de Projeto Integrador — Engenharia de Computação (UNIVESP)</b></sub>
-</p>
+  <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp" width="160"/></p>
 
 ## 👥 Integrantes do Grupo e Papéis
 
