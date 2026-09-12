@@ -1,4 +1,4 @@
-name: Backend CI - CondoAccess
+name: Backend CI - CondAccess
 
 on:
   push:
