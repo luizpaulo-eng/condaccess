@@ -30,7 +30,7 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
   <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp e Logo UNIVESP" width="527"/>
 </p>
 
-## 👥 Integrantes do Grupo e Papéis
+## 👥 Integrantes do Grupo
 
 * **Orientador do PI:** Prof. Marco Tulio Vilela Bueno Jardim
 
