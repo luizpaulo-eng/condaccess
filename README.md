@@ -26,9 +26,9 @@ O controle manual feito em papel no **Condomínio Residencial Jardins do Tatuap�
 Desenvolver e aplicar um sistema web acessível e moderno que automatize o registro de visitas e o recebimento de encomendas, enviando alertas em tempo real e garantindo navegabilidade universal via leitores de tela e comandos de teclado.
 
 ---
-<dl><dd><dl><dd><dl><dd><dl><dd><dl><dd><dl><dd>
-  <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp" width="527"/>
-</dd></dl></dd></dl></dd></dl></dd></dl></dd></dl></dd></dl>
+<p align="center">
+  <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp e Logo UNIVESP" width="527"/>
+</p>
 
 ## 👥 Integrantes do Grupo e Papéis
 
