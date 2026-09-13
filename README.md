@@ -27,7 +27,7 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 
 ---
 <dl><dd><dl><dd><dl><dd><dl><dd><dl><dd><dl><dd>
-  <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp" width="160"/>
+  <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp" width="527"/>
 </dd></dl></dd></dl></dd></dl></dd></dl></dd></dl></dd></dl>
 
 ## 👥 Integrantes do Grupo e Papéis
