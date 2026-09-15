@@ -1,8 +1,7 @@
 <p align="center">
   <img src="assets/logo_condaccess228x160px1509260138.png" alt="Logo CondAccess" width="228" height="160" />
-</p>
 
-# Sistema Web Acessível para Gestão e Controle de Visitas e Encomendas
+## Sistema Web Acessível para Gestão e Controle de Visitas e Encomendas</p>
 
 [![CI/CD Pipeline](https://github.com/luizpaulo-eng/condaccess/actions/workflows/ci.yml/badge.svg)](https://github.com/luizpaulo-eng/condaccess/actions/workflows/ci.yml)
 ![Univesp](https://img.shields.io/badge/UNIVESP-PJI240-red.svg)
