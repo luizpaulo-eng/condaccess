@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo_condaccess228x160px1509260138.png" alt="Logo CondAccess" width="527" />
+  <img src="assets/logo_condaccess228x160px1509260138.png" alt="Logo CondAccess" width="527" height="160" />
 </p>
 
 # 🏢 CondAccess — Sistema Web Acessível para Gestão e Controle de Visitas e Encomendas
