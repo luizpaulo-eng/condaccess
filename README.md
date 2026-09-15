@@ -1,4 +1,4 @@
-<p align="center">
+<div align="center">
   <img src="assets/logo_condaccess228x160px1509260138.png" alt="Logo CondAccess" width="228" height="160" />
 
 ## Sistema Web Acessível para Gestão e Controle de Visitas e Encomendas
@@ -11,7 +11,7 @@
 ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%20%7C%20Supabase-4169E1.svg)
 
 > **Projeto Integrador em Computação II (PJI240 / DRP14 - Turma 004)**  
-> **Universidade Virtual do Estado de São Paulo (UNIVESP)** — 2º Semestre de 2026.</p>
+> **Universidade Virtual do Estado de São Paulo (UNIVESP)** — 2º Semestre de 2026.</div>
 
 ---
 
