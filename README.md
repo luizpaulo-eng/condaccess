@@ -11,7 +11,7 @@
 ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%20%7C%20Supabase-4169E1.svg)
 
 > **Universidade Virtual do Estado de São Paulo - UNIVESP**</br>
-> **Projeto Integrador em Computação II (PJI240 / DRP14)**  
+> **Projeto Integrador em Computação II - PJI240 - DRP14**  
 > 2º Semestre de 2026</div>
 
 ---
