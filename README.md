@@ -10,8 +10,9 @@
 ![React](https://img.shields.io/badge/Frontend-React.js-61DAFB.svg)
 ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%20%7C%20Supabase-4169E1.svg)
 
-> **Projeto Integrador em Computação II (PJI240 / DRP14 - Turma 004)**  
-> **Universidade Virtual do Estado de São Paulo (UNIVESP)** — 2º Semestre de 2026.</div>
+> **Universidade Virtual do Estado de São Paulo - UNIVESP**</br>
+> **Projeto Integrador em Computação II (PJI240 / DRP14)**  
+> 2º Semestre de 2026</div>
 
 ---
 
