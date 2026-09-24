@@ -42,7 +42,7 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 | :--- | :--- |
 | **Ana Carolina de Lima Pacheco** ([@LPCarolinaAna](https://github.com/LPCarolinaAna)) | Banco de Dados (PostgreSQL / Supabase) |
 | **Jennifer Dantas de Oliveira** ([@jennifer-d-oliveira](https://github.com/jennifer-d-oliveira)) | Backend (FastAPI / Autenticação) |
-| **Lucas Santos Baptista** | Frontend (Acessibilidade WCAG / ARIA) |
+| **Lucas Santos Baptista** ([@lucabapt](https://github.com/lucabapt)) | Frontend (Acessibilidade WCAG / ARIA) |
 | **Luiz Paulo Santos de Aboim Ingles** ([@luizpaulo-eng](https://github.com/luizpaulo-eng)) | DevOps & CI/CD (GitHub Actions / Cloud) |
 | **Marcelo Pereira da Silva** | Backend (Rotas REST API / Lógica de Negócios) |
 | **Paulo Eduardo Augusto Ronqui** | Frontend (Interfaces React.js) |
