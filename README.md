@@ -36,20 +36,20 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
   <img src="assets/teams_avatar_univesp_computacao.png" alt="Avatar do Grupo Univesp e Logo UNIVESP" width="527"/>
 </p>
 
-## 👥 Integrantes do Grupo e Papéis
+## 👥 Integrantes do Grupo
 
 * **Orientador do PI:** Prof. Marco Tulio Vilela Bueno Jardim
 
-| Integrante | Usuário GitHub | RA | Função Principal |
-| :--- | :--- | :---: | :--- |
-| **Ana Carolina de Lima Pacheco** | `@anacarolina` | 24212268 | Banco de Dados (PostgreSQL / Supabase) |
-| **Jennifer Dantas de Oliveira** | `@jenniferdantas` | 24209711 | Backend (FastAPI / Autenticação) |
-| **Lucas Santos Baptista** | `@lucasbaptista` | 24220407 | Frontend (Acessibilidade WCAG / ARIA) |
-| **Luiz Paulo Santos de Aboim Ingles** | [`@luizpaulo-eng`](https://github.com/luizpaulo-eng) | 24208273 | DevOps & CI/CD (GitHub Actions / Cloud) |
-| **Marcelo Pereira da Silva** | `@marcelosilva` | 24221108 | Backend (Rotas REST API / Lógica de Negócios) |
-| **Paulo Eduardo Augusto Ronqui** | `@pauloronqui` | 1805498 | Frontend (Interfaces React.js) |
-| **Pricila da Silva Veiga** | `@pricilaveiga` | 2104653 | Gerenciamento de Projeto & Documentação ABNT |
-| **Rodrigo Inocencio da Silva** | `@rodrigoinocencio` | 24214663 | Relacionamento com a Comunidade Externa |
+| Integrante | Função Principal |
+| :--- | :--- |
+| **Ana Carolina de Lima Pacheco** ([@LPCarolinaAna](https://github.com/LPCarolinaAna)) | Banco de Dados (PostgreSQL / Supabase) |
+| **Jennifer Dantas de Oliveira** ([@jennifer-d-oliveira](https://github.com/jennifer-d-oliveira)) | Backend (FastAPI / Autenticação) |
+| **Lucas Santos Baptista** ([@lucabapt](https://github.com/lucabapt)) | Frontend (Acessibilidade WCAG / ARIA) |
+| **Luiz Paulo Santos de Aboim Ingles** ([@luizpaulo-eng](https://github.com/luizpaulo-eng)) | DevOps & CI/CD (GitHub Actions / Cloud) |
+| **Marcelo Pereira da Silva** | Backend (Rotas REST API / Lógica de Negócios) |
+| **Paulo Eduardo Augusto Ronqui** | Frontend (Interfaces React.js) |
+| **Pricila da Silva Veiga** | Gerenciamento de Projeto & Documentação ABNT |
+| **Rodrigo Inocencio da Silva** ([@RodrigoInoc](https://github.com/RodrigoInoc)) | Relacionamento com a Comunidade Externa |
 
 ---
 
