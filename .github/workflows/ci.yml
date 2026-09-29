@@ -30,6 +30,7 @@ jobs:
           "httpx<0.28" \
           pydantic \
           supabase \
+          python-dotenv \
           uvicorn
 
     - name: Run automated tests with PyTest
