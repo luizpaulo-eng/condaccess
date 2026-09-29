@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from supabase import create_client, Client
 
 app = FastAPI(
-    title="CondoAccess API",
+    title="CondAccess API",
     description="API de Gestão e Controle de Visitas e Encomendas para o Condomínio Residencial Jardins do Tatuapé",
     version="1.0.0"
 )
@@ -55,7 +55,7 @@ class PackageResponse(BaseModel):
 def read_root():
     return {
         "status": "online",
-        "project": "CondoAccess",
+        "project": "CondAccess",
         "target_community": "Condomínio Residencial Jardins do Tatuapé",
         "timestamp": datetime.utcnow().isoformat()
     }
