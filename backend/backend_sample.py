@@ -1,10 +1,13 @@
 import os
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 from supabase import create_client, Client
+from dotenv import load_dotenv
+
+load_dotenv()  # Carrega as variáveis do arquivo .env
 
 app = FastAPI(
     title="CondAccess API",
@@ -16,7 +19,7 @@ app = FastAPI(
 # VARIABLES & INITS (Secure Configs for Luiz Paulo's Pipeline)
 # -------------------------------------------------------------------------
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_KEY = SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     # Local development fallbacks
@@ -57,7 +60,7 @@ def read_root():
         "status": "online",
         "project": "CondAccess",
         "target_community": "Condomínio Residencial Jardins do Tatuapé",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 # --- ENCOMENDAS (Delivery Packages Endpoints) ---
@@ -84,7 +87,7 @@ def register_package(package_data: PackageCreate, current_user_id: UUID):
         if not response.data:
             raise HTTPException(status_code=400, detail="Erro ao inserir registro de encomenda no banco.")
             
-        return response.data
+        return response.data[0]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno do servidor: {str(e)}")
@@ -117,7 +120,7 @@ def deliver_package_to_resident(package_id: UUID, resident_id: UUID):
         update_data = {
             "status": "delivered",
             "delivered_to": str(resident_id),
-            "delivered_at": datetime.utcnow().isoformat()
+            "delivered_at": datetime.now(timezone.utc).isoformat()
         }
         
         response = supabase.table("delivery_packages").update(update_data).eq("id", str(package_id)).execute()
@@ -125,7 +128,7 @@ def deliver_package_to_resident(package_id: UUID, resident_id: UUID):
         if not response.data:
             raise HTTPException(status_code=404, detail="Encomenda não localizada ou erro ao atualizar.")
             
-        return response.data
+        return response.data[0]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao atualizar status de entrega: {str(e)}")
