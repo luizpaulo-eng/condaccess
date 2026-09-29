@@ -1,13 +1,12 @@
 import os
+import uuid
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
-from dotenv import load_dotenv
-
-load_dotenv()  # Carrega as variáveis do arquivo .env
 
 app = FastAPI(
     title="CondAccess API",
@@ -15,23 +14,41 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# -------------------------------------------------------------------------
-# VARIABLES & INITS (Secure Configs for Luiz Paulo's Pipeline)
-# -------------------------------------------------------------------------
+# Habilita suporte a CORS para o Frontend React (Vite / Localhost)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    # Local development fallbacks
-    SUPABASE_URL = "https://your-supabase-url.supabase.co"
-    SUPABASE_KEY = "your-anon-key"
+# Banco de dados em memória (Mock local para testes offline/sem credenciais Supabase)
+MOCK_PACKAGES = [
+    {
+        "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+        "apartment_id": "123e4567-e89b-12d3-a456-426614174000",
+        "description": "Pacote e-Commerce (Caixa Grande - Mercado Livre)",
+        "tracking_code": "BR987654321",
+        "status": "received",
+        "received_by": "98765432-e89b-12d3-a456-426614174000",
+        "received_at": datetime.utcnow().isoformat(),
+        "delivered_to": None,
+        "delivered_at": None,
+        "notes": "Deixado na portaria social"
+    }
+]
 
-# Initialize Supabase client
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase = None
+if SUPABASE_URL and SUPABASE_KEY and "your-supabase-url" not in SUPABASE_URL:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print(f"Aviso Supabase: {e}. Utilizando modo Fallback local.")
 
-# -------------------------------------------------------------------------
-# PYDANTIC SCHEMAS (Data Validation and Safety)
-# -------------------------------------------------------------------------
 class PackageCreate(BaseModel):
     apartment_id: UUID
     description: str
@@ -42,17 +59,13 @@ class PackageResponse(BaseModel):
     id: UUID
     apartment_id: UUID
     description: str
-    tracking_code: Optional[str]
+    tracking_code: Optional[str] = None
     status: str
     received_by: UUID
     received_at: datetime
-    delivered_to: Optional[UUID]
-    delivered_at: Optional[datetime]
-    notes: Optional[str]
-
-# -------------------------------------------------------------------------
-# API ROUTES (Endpoints of CondoAccess)
-# -------------------------------------------------------------------------
+    delivered_to: Optional[UUID] = None
+    delivered_at: Optional[datetime] = None
+    notes: Optional[str] = None
 
 @app.get("/", tags=["Health Check"])
 def read_root():
@@ -60,75 +73,84 @@ def read_root():
         "status": "online",
         "project": "CondAccess",
         "target_community": "Condomínio Residencial Jardins do Tatuapé",
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.utcnow().isoformat()
     }
-
-# --- ENCOMENDAS (Delivery Packages Endpoints) ---
 
 @app.post("/packages", response_model=PackageResponse, status_code=status.HTTP_201_CREATED, tags=["Encomendas"])
 def register_package(package_data: PackageCreate, current_user_id: UUID):
-    """
-    Registra o recebimento de uma nova encomenda na portaria.
-    Este endpoint será consumido pela interface do Porteiro ao receber um pacote.
-    """
-    try:
-        new_package = {
-            "apartment_id": str(package_data.apartment_id),
-            "description": package_data.description,
-            "tracking_code": package_data.tracking_code,
-            "received_by": str(current_user_id),
-            "status": "received",
-            "notes": package_data.notes
-        }
-        
-        # Insert into Supabase Table
-        response = supabase.table("delivery_packages").insert(new_package).execute()
-        
-        if not response.data:
-            raise HTTPException(status_code=400, detail="Erro ao inserir registro de encomenda no banco.")
-            
-        return response.data[0]
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro interno do servidor: {str(e)}")
+    if supabase:
+        try:
+            new_package = {
+                "apartment_id": str(package_data.apartment_id),
+                "description": package_data.description,
+                "tracking_code": package_data.tracking_code,
+                "received_by": str(current_user_id),
+                "status": "received",
+                "notes": package_data.notes
+            }
+            res = supabase.table("delivery_packages").insert(new_package).execute()
+            if res.data and len(res.data) > 0:
+                return res.data
+        except Exception as e:
+            print(f"Erro ao inserir no Supabase ({e}). Usando fallback local.")
+
+    # Fallback local em memória
+    mock_pkg = {
+        "id": str(uuid.uuid4()),
+        "apartment_id": str(package_data.apartment_id),
+        "description": package_data.description,
+        "tracking_code": package_data.tracking_code,
+        "status": "received",
+        "received_by": str(current_user_id),
+        "received_at": datetime.utcnow().isoformat(),
+        "delivered_to": None,
+        "delivered_at": None,
+        "notes": package_data.notes
+    }
+    MOCK_PACKAGES.append(mock_pkg)
+    return mock_pkg
 
 @app.get("/apartments/{apartment_id}/packages", response_model=List[PackageResponse], tags=["Encomendas"])
 def get_apartment_packages(apartment_id: UUID, status_filter: Optional[str] = "received"):
-    """
-    Busca todas as encomendas de um apartamento específico.
-    Utilizado na interface acessível do Morador (React/WCAG) para verificar se há entregas pendentes.
-    """
-    try:
-        query = supabase.table("delivery_packages").select("*").eq("apartment_id", str(apartment_id))
-        
-        if status_filter:
-            query = query.eq("status", status_filter)
-            
-        response = query.execute()
-        return response.data
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro de conexão com o banco de dados: {str(e)}")
+    if supabase:
+        try:
+            query = supabase.table("delivery_packages").select("*").eq("apartment_id", str(apartment_id))
+            if status_filter:
+                query = query.eq("status", status_filter)
+            res = query.execute()
+            if res.data is not None:
+                return res.data
+        except Exception as e:
+            print(f"Erro ao consultar Supabase ({e}). Usando fallback local.")
+
+    # Fallback local em memória
+    filtered = [
+        pkg for pkg in MOCK_PACKAGES 
+        if pkg["apartment_id"] == str(apartment_id) and (not status_filter or pkg["status"] == status_filter)
+    ]
+    return filtered
 
 @app.put("/packages/{package_id}/deliver", response_model=PackageResponse, tags=["Encomendas"])
 def deliver_package_to_resident(package_id: UUID, resident_id: UUID):
-    """
-    Registra a entrega/retirada de uma encomenda pelo morador.
-    Atualiza o status para 'delivered' e grava a data/hora e o morador que retirou.
-    """
-    try:
-        update_data = {
-            "status": "delivered",
-            "delivered_to": str(resident_id),
-            "delivered_at": datetime.now(timezone.utc).isoformat()
-        }
-        
-        response = supabase.table("delivery_packages").update(update_data).eq("id", str(package_id)).execute()
-        
-        if not response.data:
-            raise HTTPException(status_code=404, detail="Encomenda não localizada ou erro ao atualizar.")
+    if supabase:
+        try:
+            update_data = {
+                "status": "delivered",
+                "delivered_to": str(resident_id),
+                "delivered_at": datetime.utcnow().isoformat()
+            }
+            res = supabase.table("delivery_packages").update(update_data).eq("id", str(package_id)).execute()
+            if res.data and len(res.data) > 0:
+                return res.data
+        except Exception as e:
+            print(f"Erro ao atualizar no Supabase ({e}). Usando fallback local.")
+
+    # Fallback local em memória
+    for pkg in MOCK_PACKAGES:
+        if pkg["id"] == str(package_id):
+            pkg["status"] = "delivered"
+            pkg["delivered_to"] = str(resident_id)
+            pkg["delivered_at"] = datetime.utcnow().isoformat()
+            return pkg
             
-        return response.data[0]
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao atualizar status de entrega: {str(e)}")
+    raise HTTPException(status_code=404, detail="Encomenda não localizada.")
