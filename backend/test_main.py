@@ -10,7 +10,7 @@ def test_read_root():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "online"
-    assert data["project"] == "CondoAccess"
+    assert data["project"] == "CondAccess"
     assert "Condomínio Residencial Jardins do Tatuapé" in data["target_community"]
 
 def test_get_packages_invalid_apartment_format():
