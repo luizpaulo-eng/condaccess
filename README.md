@@ -57,7 +57,7 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 | **Ana Carolina de Lima Pacheco** | Banco de Dados (PostgreSQL / Supabase) |
 | **Jennifer Dantas de Oliveira** | Backend (FastAPI / Autenticação) |
 | **Lucas Santos Baptista** | Frontend (Acessibilidade WCAG / ARIA) |
-| **Luiz Paulo Santos de Aboim Ingles** ([@luizpaulo-eng](https://github.com/luizpaulo-eng)) | DevOps & CI/CD (GitHub Actions / Cloud) |
+| **Luiz Paulo Santos de Aboim Ingles** | DevOps & CI/CD (GitHub Actions / Cloud) |
 | **Marcelo Pereira da Silva** | Backend (Rotas REST API / Lógica de Negócios) |
 | **Paulo Eduardo Augusto Ronqui** | Frontend (Interfaces React.js) |
 | **Pricila da Silva Veiga** | Gerenciamento de Projeto & Documentação ABNT |
