@@ -59,7 +59,7 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 | **Lucas Santos Baptista** ([@lucabapt](https://github.com/lucabapt)) | Frontend (Acessibilidade WCAG / ARIA) |
 | **Luiz Paulo Santos de Aboim Ingles** ([@luizpaulo-eng](https://github.com/luizpaulo-eng))| DevOps & CI/CD (GitHub Actions / Cloud) |
 | **Marcelo Pereira da Silva** ([@univesp-marcelo](https://github.com/univesp-marcelo))| Backend (Rotas REST API / Lógica de Negócios) |
-| **Paulo Eduardo Augusto Ronqui** | Frontend (Interfaces React.js) |
+| **Paulo Eduardo Augusto Ronqui** ([@pauloearonchi](https://github.com/pauloearonchi)| Frontend (Interfaces React.js) |
 | **Pricila da Silva Veiga** | Gerenciamento de Projeto & Documentação ABNT |
 | **Rodrigo Inocencio da Silva** | Relacionamento com a Comunidade Externa |
 <!-- ========================================================== -->
