@@ -114,7 +114,7 @@ A aplicação atende rigorosamente aos requisitos do tema norteador da UNIVESP p
 
 ---
 
-## 📂 Estrutura Atualizada do Repositório
+## 📂 Estrutura do Repositório
 
 ```text
 condaccess/
