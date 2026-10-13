@@ -141,7 +141,8 @@ condaccess/
 ---
 
 ## ⚙️ Guia de Inicialização
-
+<details>
+  
 #### ⚠️ Nota de Contribuição e Proteção de Código
 
 > **Aviso aos Desenvolvedores e Integrantes:** As seções contidas entre os comentários `<!-- INÍCIO DA ÁREA PROTEGIDA DO CONDACCESS -->` e `<!-- FIM DA ÁREA PROTEGIDA DO CONDACCESS -->` são **fixas e protegidas**. Em atualizações e novas versões deste arquivo, **mantenha intactos todos os blocos, badges, logos e tabelas dentro dessas marcações**. O restante da documentação (arquitetura, guias de execução, testes e rotas) pode ser editado livremente conforme a evolução do sistema.
@@ -232,11 +233,11 @@ npm run dev
 3. **Recebimento na Portaria (`POST`)**: Clique no botão verde **`+ Receber Nova Encomenda (Portaria)`**, preencha a descrição do pacote e clique em salvar. O pacote será registrado na API e surgirá na lista.
 4. **Confirmação de Retirada (`PUT`)**: Clique em **`Confirmar Retirada`** em um dos pacotes para dar baixa e atualizar a lista em tempo real.
 5. **Inspeção de Rede**: Pressione **`F12`** (ou botão direito $\rightarrow$ **Inspecionar**) no navegador, vá na aba **Network / Rede** $\rightarrow$ filtro **Fetch/XHR** e observe as requisições HTTP (`200 OK` e `201 Created`).
-
----
+</details>
 
 ## 🔀 Fluxo de Contribuição no Git e GitHub
-
+<details>
+  
 Devido às **regras de proteção da branch `main`** (`GH013`), nenhum envio de código pode ser feito diretamente na `main`. Todo o desenvolvimento deve seguir o fluxo abaixo:
 
 1. **Criar uma nova branch de funcionalidade:**
@@ -254,8 +255,7 @@ Devido às **regras de proteção da branch `main`** (`GH013`), nenhum envio de 
    ```
 4. **Abrir um Pull Request (PR):**
    Acesse [github.com/luizpaulo-eng/condaccess](https://github.com/luizpaulo-eng/condaccess), clique em **"Compare & pull request"**, aguarde a validação dos testes do GitHub Actions (`test-backend`) e clique em **"Confirm merge"**.
-
----
+</details>
 
 ## 📄 Licença
 
