@@ -4,7 +4,7 @@
 <div align="center">
   <img src="assets/logo_condaccess228x160px1509260138.png" alt="Logo CondAccess" width="228" height="160" />
 
-  ## Gestão e Controle de Visitas e Encomendas
+  ## Sistema Web Acessível para Gestão e Controle de Visitas e Encomendas em Condomínios Residenciais
 <!-- ========================================================== -->
 <!-- ATENÇÃO: FIM DA ÁREA PROTEGIDA DO CONDACCESS, NÃO ALTERAR OU REMOVER AS TAGS ACIMA -->
 <!-- ========================================================== -->
@@ -60,11 +60,28 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 | **Luiz Paulo Santos de Aboim Ingles** ([@luizpaulo-eng](https://github.com/luizpaulo-eng))| DevOps & CI/CD (GitHub Actions / Cloud) |
 | **Marcelo Pereira da Silva** ([@univesp-marcelo](https://github.com/univesp-marcelo))| Backend (Rotas REST API / Lógica de Negócios) |
 | **Paulo Eduardo Augusto Ronqui** ([@pauloearonchi](https://github.com/pauloearonchi)| Frontend (Interfaces React.js) |
-| **Pricila da Silva Veiga** | Gerenciamento de Projeto & Documentação ABNT |
+| **Pricila da Silva Veiga** ([@PricilaUnivesp](https://github.com/PricilaUnivesp)) | Gerenciamento de Projeto & Documentação ABNT |
 | **Rodrigo Inocencio da Silva** ([@RodrigoInoc](https://github.com/RodrigoInoc)) | Relacionamento com a Comunidade Externa |
 <!-- ========================================================== -->
 <!-- ATENÇÃO: FIM DA ÁREA PROTEGIDA DO CONDACCESS, NÃO ALTERAR OU REMOVER AS TAGS ACIMA -->
 <!-- ========================================================== -->
+
+---
+
+## 🚀 Consolidação Prática da Portaria e Testes de Acessibilidade
+
+Nesta etapa, o projeto transicionou da fase teórica para a **consolidação prática e funcional** do módulo de portaria, integrando a interface ao backend e ao banco de dados relacional e realizando validações empíricas de acessibilidade:
+
+### 📦 1. Módulo de Recebimento na Portaria e Seletores Dinâmicos
+* **Mapeamento Estruturado do Condomínio:** Cadastramento dos blocos e das unidades habitacionais (andares por bloco, apartamentos).
+* **Seleção Encadeada Dinâmica:** O formulário de recebimento da portaria filtra os apartamentos instantaneamente conforme o bloco selecionado.
+* **Integração REST End-to-End:** Envio das requisições via `POST /packages` vinculando dados de localização, código de rastreio e observações diretamente ao PostgreSQL no Supabase.
+
+### ♿ 2. Validação Empírica de Acessibilidade (WCAG 2.1 AA / WAI-ARIA)
+* **Região Acessível (`aria-live="polite"`):** Implementação de avisos em segundo plano com técnica CSS de ocultamento visual (`clip: rect(1px, 1px, 1px, 1px)`), transmitindo alertas exclusivamente a tecnologias assistivas sem causar poluição visual.
+* **Teste com Leitor de Tela:** Validação executada com o **Narrador do Windows** (`Win + Ctrl + Enter`), comprovando a narração em áudio do cadastro e da confirmação de retirada de pacotes.
+* **Inspeção de DOM em Tempo Real:** Verificação via **DevTools (F12)**, atestando a atualização dinâmica dos atributos acessíveis no DOM durante os eventos da aplicação.
+
 ---
 
 #### ⚠️ Nota de Contribuição e Proteção de Código
