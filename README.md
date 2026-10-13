@@ -84,12 +84,6 @@ Nesta etapa, o projeto transicionou da fase teórica para a **consolidação pr�
 
 ---
 
-#### ⚠️ Nota de Contribuição e Proteção de Código
-
-> **Aviso aos Desenvolvedores e Integrantes:** As seções contidas entre os comentários `<!-- INÍCIO DA ÁREA PROTEGIDA DO CONDACCESS -->` e `<!-- FIM DA ÁREA PROTEGIDA DO CONDACCESS -->` são **fixas e protegidas**. Em atualizações e novas versões deste arquivo, **mantenha intactos todos os blocos, badges, logos e tabelas dentro dessas marcações**. O restante da documentação (arquitetura, guias de execução, testes e rotas) pode ser editado livremente conforme a evolução do sistema.
-
----
-
 ## 🏗️ Arquitetura e Tecnologias
 
 A aplicação atende rigorosamente aos requisitos do tema norteador da UNIVESP para o PI II:
@@ -146,7 +140,13 @@ condaccess/
 
 ---
 
-## ⚙️ Guia Completo de Inicialização para a Equipe
+## ⚙️ Guia de Inicialização
+
+#### ⚠️ Nota de Contribuição e Proteção de Código
+
+> **Aviso aos Desenvolvedores e Integrantes:** As seções contidas entre os comentários `<!-- INÍCIO DA ÁREA PROTEGIDA DO CONDACCESS -->` e `<!-- FIM DA ÁREA PROTEGIDA DO CONDACCESS -->` são **fixas e protegidas**. Em atualizações e novas versões deste arquivo, **mantenha intactos todos os blocos, badges, logos e tabelas dentro dessas marcações**. O restante da documentação (arquitetura, guias de execução, testes e rotas) pode ser editado livremente conforme a evolução do sistema.
+
+---
 
 Siga os passos abaixo para colocar o ambiente **Full Stack (Backend + Frontend)** rodando na sua máquina local.
 
