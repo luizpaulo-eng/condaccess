@@ -46,7 +46,7 @@ function App() {
         fontFamily: 'system-ui, sans-serif'
       }}>
         <span>
-          Usuário: <strong>{user.nome || [link suspeito removido]}</strong> | Perfil: <strong>{user.role === 'admin' ? 'Portaria / Admin' : 'Morador'}</strong>
+          Usuário: <strong>{user.nome || 'Portaria'}</strong> | Perfil: <strong>{user.role === 'admin' ? 'Portaria / Admin' : 'Morador'}</strong>
         </span>
         <button 
           onClick={handleLogout}
@@ -65,7 +65,7 @@ function App() {
       </nav>
 
       <DeliveryAlert 
-        currentUserId={[link suspeito removido] || '98765432-e89b-12d3-a456-426614174000'} 
+        currentUserId={user.id || '98765432-e89b-12d3-a456-426614174000'} 
         apartmentId={user.apartmentId || '123e4567-e89b-12d3-a456-426614174000'} 
       />
     </div>
