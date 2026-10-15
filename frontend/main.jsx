@@ -67,6 +67,7 @@ function App() {
       <DeliveryAlert 
         currentUserId={user.id || '98765432-e89b-12d3-a456-426614174000'} 
         apartmentId={user.apartmentId || '123e4567-e89b-12d3-a456-426614174000'} 
+        userRole={user.role} 
       />
     </div>
   );
