@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v5)
- * Componente React Acessível (WCAG 2.1 AA) com Seletores de Bloco e Apartamento.
+ * DeliveryAlert Component
+ * Componente React Acessível (WCAG 2.1 AA) com Seletores de Bloco, Apartamento e Banner de Feedback Visual.
  * Condomínio Residencial Jardins do Tatuapé (5 Blocos / 340 Unidades)
  */
 
@@ -53,7 +53,7 @@ export default function DeliveryAlert({
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Atualiza a lista de apartamentos (11 a 174) conforme o bloco selecionado
+  // Atualiza a lista de apartamentos conforme o bloco selecionado
   useEffect(() => {
     if (!selectedBloco) {
       setAptosDisponiveis([]);
@@ -83,11 +83,6 @@ export default function DeliveryAlert({
       if (!response.ok) throw new Error(`Erro: ${response.status}`);
       const data = await response.json();
       setPackages(data);
-      setAnnouncement(
-        data.length === 0 
-          ? 'Nenhuma encomenda pendente encontrada.' 
-          : `${data.length} encomenda(s) carregada(s) com sucesso.`
-      );
     } catch (err) {
       console.error('Erro ao buscar encomendas:', err);
       setError('Não foi possível conectar ao servidor backend.');
@@ -153,7 +148,7 @@ export default function DeliveryAlert({
       setSelectedBloco('');
       setSelectedApto('');
       setShowRegisterForm(false);
-      setAnnouncement(`Nova encomenda cadastrada para o Apto ${selectedApto}.`);
+      setAnnouncement(`Nova encomenda cadastrada com sucesso para o Apto ${selectedApto}.`);
       fetchPackages();
     } catch (err) {
       alert('Erro ao registrar encomenda no banco de dados.');
@@ -178,13 +173,14 @@ export default function DeliveryAlert({
       <header style={{ borderBottom: `2px solid ${theme.border}`, paddingBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', margin: 0 }}>CondAccess - Painel de Encomendas</h1>
-          <p style={{ margin: '4px 0 0 0', opacity: 0.8, fontSize: '0.95rem' }}>Condomínio Residencial Jardins do Tatuapé</p>
+          <p style={{ margin: '4px 0 0 0', opacity: 0.8 }}>Condomínio Residencial Jardins do Tatuapé</p>
         </div>
-
-        <div style={{ display: 'flex', gap: '10px' }}>
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button 
             onClick={() => setHighContrast(!highContrast)}
-            style={{ minHeight: '48px', padding: '10px 18px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: `2px solid ${theme.border}`, borderRadius: '6px' }}
+            style={{ minHeight: '48px', padding: '10px 18px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: 'none', borderRadius: '6px' }}
+            aria-label={highContrast ? "Desativar modo de alto contraste" : "Ativar modo de alto contraste"}
           >
             {highContrast ? "Contraste Padrão" : "Alto Contraste"}
           </button>
@@ -198,9 +194,47 @@ export default function DeliveryAlert({
         </div>
       </header>
 
+      {/* Região ARIA-LIVE para Leitores de Tela */}
       <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(1px, 1px, 1px, 1px)' }}>
         {announcement}
       </div>
+
+      {/* Banner Visual Verde de Confirmação em Tela */}
+      {announcement && (
+        <div 
+          style={{
+            marginTop: '16px',
+            padding: '12px 20px',
+            backgroundColor: highContrast ? '#003300' : '#dcfce7',
+            color: highContrast ? '#00ff00' : '#15803d',
+            border: `1px solid ${highContrast ? '#00ff00' : '#86efac'}`,
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            fontSize: '1rem',
+            display: 'flex',
+            justify: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+          }}
+        >
+          <span>✅ {announcement}</span>
+          <button 
+            onClick={() => setAnnouncement('')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'inherit',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              fontSize: '1.2rem',
+              marginLeft: '12px'
+            }}
+            aria-label="Fechar notificação"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <main style={{ marginTop: '24px' }}>
         <div style={{ marginBottom: '24px' }}>
@@ -212,93 +246,130 @@ export default function DeliveryAlert({
           </button>
         </div>
 
-        {/* FORMULÁRIO COM SELETORES DE BLOCO E APARTAMENTO */}
+        {/* FORMULÁRIO DE REGISTRO DA PORTARIA */}
         {showRegisterForm && (
-          <section style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '20px', marginBottom: '24px', maxWidth: '600px' }}>
-            <h2 style={{ marginTop: 0, fontSize: '1.3rem' }}>Registrar Recebimento na Portaria</h2>
-            <form onSubmit={handleRegisterPackage} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              
-              {/* SELEÇÃO DO BLOCO */}
+          <form 
+            onSubmit={handleRegisterPackage} 
+            style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '20px', marginBottom: '24px' }}
+          >
+            <h2 style={{ fontSize: '1.3rem', marginTop: 0 }}>Receber Nova Encomenda</h2>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
               <div>
-                <label htmlFor="pkg-bloco" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Bloco / Edifício *</label>
-                <select
-                  id="pkg-bloco"
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px' }}>Bloco do Condomínio *</label>
+                <select 
                   value={selectedBloco}
-                  onChange={(evt) => setSelectedBloco(evt.target.value)}
+                  onChange={(e) => setSelectedBloco(e.target.value)}
                   required
-                  style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                  style={{ width: '100%', padding: '10px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }}
                 >
                   <option value="">-- Selecione o Bloco --</option>
-                  {BLOCOS_CONDOMINIO.map((bloco) => (
+                  {BLOCOS_CONDOMINIO.map(bloco => (
                     <option key={bloco.id} value={bloco.id}>{bloco.nome}</option>
                   ))}
                 </select>
               </div>
 
-              {/* SELEÇÃO DO APARTAMENTO */}
               <div>
-                <label htmlFor="pkg-apto" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Número do Apartamento *</label>
-                <select
-                  id="pkg-apto"
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px' }}>Apartamento *</label>
+                <select 
                   value={selectedApto}
-                  onChange={(evt) => setSelectedApto(evt.target.value)}
+                  onChange={(e) => setSelectedApto(e.target.value)}
                   disabled={!selectedBloco}
                   required
-                  style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: !selectedBloco ? '#e2e8f0' : '#ffffff' }}
+                  style={{ width: '100%', padding: '10px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }}
                 >
-                  <option value="">
-                    {!selectedBloco ? '-- Escolha primeiro o Bloco --' : '-- Selecione o Apartamento --'}
-                  </option>
-                  {aptosDisponiveis.map((item) => (
-                    <option key={item.numero} value={item.numero}>{item.rotulo}</option>
+                  <option value="">{selectedBloco ? "-- Selecione o Apto --" : "Selecione o Bloco primeiro"}</option>
+                  {aptosDisponiveis.map(apto => (
+                    <option key={apto.numero} value={apto.numero}>{apto.rotulo}</option>
                   ))}
                 </select>
               </div>
+            </div>
 
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px' }}>Descrição da Encomenda *</label>
+              <input 
+                type="text"
+                placeholder="Ex: Caixa da Amazon - Livros"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                required
+                style={{ width: '100%', padding: '10px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
               <div>
-                <label htmlFor="pkg-desc" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Descrição da Encomenda *</label>
-                <input id="pkg-desc" type="text" value={description} onChange={(evt) => setDescription(evt.target.value)} placeholder="Ex: Pacote Amazon, Caixa Sedex..." required style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }} />
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px' }}>Código de Rastreio (opcional)</label>
+                <input 
+                  type="text"
+                  placeholder="Ex: BR123456789"
+                  value={trackingCode}
+                  onChange={(e) => setTrackingCode(e.target.value)}
+                  style={{ width: '100%', padding: '10px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
               </div>
 
               <div>
-                <label htmlFor="pkg-tracking" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Código de Rastreio (Opcional)</label>
-                <input id="pkg-tracking" type="text" value={trackingCode} onChange={(evt) => setTrackingCode(evt.target.value)} placeholder="Ex: BR123456789" style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }} />
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px' }}>Observações da Portaria</label>
+                <input 
+                  type="text"
+                  placeholder="Ex: Entregue na recepção social"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  style={{ width: '100%', padding: '10px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
               </div>
+            </div>
 
-              <div>
-                <label htmlFor="pkg-notes" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Observações (Opcional)</label>
-                <input id="pkg-notes" type="text" value={notes} onChange={(evt) => setNotes(evt.target.value)} placeholder="Ex: Deixado na recepção social" style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }} />
-              </div>
-
-              <button type="submit" disabled={isSubmitting} style={{ minHeight: '48px', padding: '10px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: 'none', borderRadius: '6px' }}>
-                {isSubmitting ? "Enviando..." : "Salvar no Banco (POST /packages)"}
-              </button>
-            </form>
-          </section>
+            <button 
+              type="submit"
+              disabled={isSubmitting}
+              style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}
+            >
+              {isSubmitting ? "Cadastrando..." : "Salvar Encomenda"}
+            </button>
+          </form>
         )}
 
-        <section aria-label="Suas encomendas pendentes">
-          <h2 style={{ fontSize: '1.4rem', marginBottom: '16px' }}>Entregas Aguardando Retirada ({packages.length})</h2>
+        <section aria-label="Encomendas aguardando retirada">
+          <h2 style={{ fontSize: '1.4rem' }}>
+            Entregas Aguardando Retirada ({packages.length})
+          </h2>
+
           {loading ? (
-            <p style={{ fontSize: '1.1rem' }}>Carregando encomendas do servidor...</p>
+            <p>Carregando lista de encomendas...</p>
           ) : error ? (
-            <div style={{ padding: '16px', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
-              <p style={{ margin: 0, fontWeight: 'bold' }}>{error}</p>
-              <button onClick={fetchPackages} style={{ marginTop: '10px', padding: '8px 12px', cursor: 'pointer' }}>Tentar Novamente</button>
-            </div>
+            <p style={{ color: '#ef4444', fontWeight: 'bold' }}>{error}</p>
           ) : packages.length === 0 ? (
-            <p style={{ fontSize: '1.1rem' }}>Nenhuma encomenda pendente para este apartamento.</p>
+            <p style={{ fontSize: '1.1rem', opacity: 0.8 }}>Nenhuma encomenda pendente para este apartamento.</p>
           ) : (
-            <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <ul style={{ listStyleType: 'none', padding: 0, display: 'grid', gap: '16px' }}>
               {packages.map((pkg) => (
-                <li key={pkg.id} style={{ padding: '20px', border: `2px solid ${theme.border}`, borderRadius: '8px', backgroundColor: theme.cardBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <strong style={{ fontSize: '1.2rem', color: theme.text }}>{pkg.description}</strong>
-                    {pkg.tracking_code && <span>Código de Rastreio: <code>{pkg.tracking_code}</code></span>}
-                    <small style={{ opacity: 0.8 }}>Recebido em: {new Date(pkg.received_at).toLocaleString('pt-BR')}</small>
-                    {pkg.notes && <small style={{ fontStyle: 'italic' }}>Obs: {pkg.notes}</small>}
+                <li 
+                  key={pkg.id} 
+                  style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}
+                >
+                  <div>
+                    <strong style={{ fontSize: '1.1rem', display: 'block' }}>{pkg.description}</strong>
+                    {pkg.tracking_code && (
+                      <span style={{ fontSize: '0.9rem', opacity: 0.8, display: 'block' }}>Código de Rastreio: {pkg.tracking_code}</span>
+                    )}
+                    <span style={{ fontSize: '0.85rem', opacity: 0.7, display: 'block' }}>
+                      Recebido em: {new Date(pkg.received_at).toLocaleString('pt-BR')}
+                    </span>
+                    {pkg.notes && (
+                      <span style={{ fontSize: '0.85rem', color: theme.btnPrimaryBg, display: 'block', marginTop: '4px' }}>
+                        Obs: {pkg.notes}
+                      </span>
+                    )}
                   </div>
-                  <button onClick={() => handleDeliverPackage(pkg.id, pkg.description)} style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}>
+
+                  <button 
+                    onClick={() => handleDeliverPackage(pkg.id, pkg.description)}
+                    style={{ padding: '10px 16px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}
+                  >
                     Confirmar Retirada
                   </button>
                 </li>
