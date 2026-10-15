@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 /**
  * DeliveryAlert Component
- * Componente React Acessível (WCAG 2.1 AA) com Seletores de Bloco, Apartamento e Banner de Feedback Visual.
+ * Componente React Acessível (WCAG 2.1 AA) com Seletores de Bloco, Apartamento e Controle de Perfil.
  * Condomínio Residencial Jardins do Tatuapé (5 Blocos / 340 Unidades)
  */
 
@@ -35,13 +35,17 @@ const BLOCOS_CONDOMINIO = [
 
 export default function DeliveryAlert({ 
   apartmentId = DEFAULT_APARTMENT_ID, 
-  currentUserId = DEFAULT_USER_ID 
+  currentUserId = DEFAULT_USER_ID,
+  userRole = 'portaria'
 }) {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [announcement, setAnnouncement] = useState('');
   const [highContrast, setHighContrast] = useState(false);
+
+  // Define se o usuário logado é da Portaria / Administração
+  const isPortaria = userRole === 'portaria' || userRole === 'admin';
 
   // Estados do formulário de cadastro de encomenda (Interface da Portaria)
   const [showRegisterForm, setShowRegisterForm] = useState(false);
@@ -199,7 +203,7 @@ export default function DeliveryAlert({
         {announcement}
       </div>
 
-      {/* Banner Visual Verde de Confirmação em Tela */}
+      {/* Banner Visual Verde de Confirmação */}
       {announcement && (
         <div 
           style={{
@@ -213,22 +217,13 @@ export default function DeliveryAlert({
             fontSize: '1rem',
             display: 'flex',
             justify: 'space-between',
-            alignItems: 'center',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+            alignItems: 'center'
           }}
         >
           <span>✅ {announcement}</span>
           <button 
             onClick={() => setAnnouncement('')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'inherit',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              fontSize: '1.2rem',
-              marginLeft: '12px'
-            }}
+            style={{ background: 'none', border: 'none', color: 'inherit', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.2rem', marginLeft: '12px' }}
             aria-label="Fechar notificação"
           >
             ✕
@@ -237,17 +232,20 @@ export default function DeliveryAlert({
       )}
 
       <main style={{ marginTop: '24px' }}>
-        <div style={{ marginBottom: '24px' }}>
-          <button
-            onClick={() => setShowRegisterForm(!showRegisterForm)}
-            style={{ minHeight: '48px', padding: '12px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}
-          >
-            {showRegisterForm ? "Cancelar Cadastro" : "+ Receber Nova Encomenda (Portaria)"}
-          </button>
-        </div>
+        {/* BOTÃO DE RECEBER ENCOMENDA: EXIBIDO APENAS PARA PERFIL PORTARIA / ADMIN */}
+        {isPortaria && (
+          <div style={{ marginBottom: '24px' }}>
+            <button
+              onClick={() => setShowRegisterForm(!showRegisterForm)}
+              style={{ minHeight: '48px', padding: '12px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}
+            >
+              {showRegisterForm ? "Cancelar Cadastro" : "+ Receber Nova Encomenda (Portaria)"}
+            </button>
+          </div>
+        )}
 
         {/* FORMULÁRIO DE REGISTRO DA PORTARIA */}
-        {showRegisterForm && (
+        {isPortaria && showRegisterForm && (
           <form 
             onSubmit={handleRegisterPackage} 
             style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '20px', marginBottom: '24px' }}
@@ -343,7 +341,12 @@ export default function DeliveryAlert({
           ) : error ? (
             <p style={{ color: '#ef4444', fontWeight: 'bold' }}>{error}</p>
           ) : packages.length === 0 ? (
-            <p style={{ fontSize: '1.1rem', opacity: 0.8 }}>Nenhuma encomenda pendente para este apartamento.</p>
+            /* MENSAGEM DINÂMICA DE ACORDO COM O PERFIL */
+            <p style={{ fontSize: '1.1rem', opacity: 0.8 }}>
+              {isPortaria 
+                ? "Nenhuma encomenda pendente na portaria." 
+                : "Nenhuma encomenda pendente para este apartamento."}
+            </p>
           ) : (
             <ul style={{ listStyleType: 'none', padding: 0, display: 'grid', gap: '16px' }}>
               {packages.map((pkg) => (
