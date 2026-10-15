@@ -46,7 +46,7 @@ function App() {
         fontFamily: 'system-ui, sans-serif'
       }}>
         <span>
-          Usuário: <strong>{user.nome || 'Portaria'}</strong> | Perfil: <strong>{user.role === 'admin' ? 'Portaria / Admin' : 'Morador'}</strong>
+          Usuário: <strong>{user.nome || 'Portaria'}</strong> | Perfil: <strong>{user.role === 'admin' || user.role === 'portaria' ? 'Portaria / Admin' : 'Morador'}</strong>
         </span>
         <button 
           onClick={handleLogout}
