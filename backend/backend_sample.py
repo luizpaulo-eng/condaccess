@@ -6,15 +6,20 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from supabase import create_client, Client
+
+try:
+    from supabase import create_client, Client
+except ImportError:
+    create_client = None
+    Client = None
 
 app = FastAPI(
     title="CondAccess API",
     description="API de Gestão e Controle de Visitas e Encomendas para o Condomínio Residencial Jardins do Tatuapé",
-    version="1.0.0"
+    version="1.1.0"
 )
 
-# Habilita suporte a CORS para o Frontend React (Vercel / Localhost)
+# Habilita suporte a CORS para o Frontend React (Vite / Localhost)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,7 +31,9 @@ app.add_middleware(
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
-# Banco de dados em memória (Fallback local quando o Supabase não estiver configurado)
+# -------------------------------------------------------------------------
+# MOCK DATABASE (Fallback local para testes offline e desenvolvimento)
+# -------------------------------------------------------------------------
 MOCK_PACKAGES = [
     {
         "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
@@ -42,18 +49,43 @@ MOCK_PACKAGES = [
     }
 ]
 
-supabase: Optional[Client] = None
-if SUPABASE_URL and SUPABASE_KEY and "your-supabase-url" not in SUPABASE_URL:
+MOCK_VISITORS = [
+    {
+        "id": "c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f",
+        "name": "Roberto Alves (Técnico de Internet)",
+        "document_id": "123.456.789-00",
+        "visitor_type": "contractor",
+        "company": "Claro Telecom",
+        "photo_url": None,
+        "created_at": datetime.utcnow().isoformat()
+    }
+]
+
+MOCK_VISITS = [
+    {
+        "id": "f1e2d3c4-b5a6-9f8e-7d6c-5b4a3f2e1d0c",
+        "visitor_id": "c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f",
+        "apartment_id": "123e4567-e89b-12d3-a456-426614174000",
+        "registered_by": "98765432-e89b-12d3-a456-426614174000",
+        "entry_time": datetime.utcnow().isoformat(),
+        "exit_time": None,
+        "status": "active",
+        "notes": "Instalação de fibra óptica no Apto 101"
+    }
+]
+
+supabase = None
+if create_client and SUPABASE_URL and SUPABASE_KEY and "your-supabase-url" not in SUPABASE_URL:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as e:
         print(f"Aviso Supabase: {e}. Utilizando modo Fallback local.")
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-    role: Optional[str] = "portaria"
+# -------------------------------------------------------------------------
+# PYDANTIC SCHEMAS (Validação e Modelagem de Dados)
+# -------------------------------------------------------------------------
 
+# --- SCHEMAS DE ENCOMENDAS ---
 class PackageCreate(BaseModel):
     apartment_id: UUID
     description: str
@@ -72,6 +104,43 @@ class PackageResponse(BaseModel):
     delivered_at: Optional[datetime] = None
     notes: Optional[str] = None
 
+# --- SCHEMAS DE VISITANTES ---
+class VisitorCreate(BaseModel):
+    name: str
+    document_id: Optional[str] = None
+    visitor_type: str = "visitor"  # 'visitor', 'contractor', 'delivery_person'
+    company: Optional[str] = None
+    photo_url: Optional[str] = None
+
+class VisitorResponse(BaseModel):
+    id: UUID
+    name: str
+    document_id: Optional[str] = None
+    visitor_type: str
+    company: Optional[str] = None
+    photo_url: Optional[str] = None
+    created_at: datetime
+
+# --- SCHEMAS DE REGISTROS DE VISITAS ---
+class VisitCreate(BaseModel):
+    visitor_id: UUID
+    apartment_id: UUID
+    notes: Optional[str] = None
+
+class VisitResponse(BaseModel):
+    id: UUID
+    visitor_id: UUID
+    apartment_id: UUID
+    registered_by: UUID
+    entry_time: datetime
+    exit_time: Optional[datetime] = None
+    status: str
+    notes: Optional[str] = None
+
+# -------------------------------------------------------------------------
+# ROTAS DA API (CondAccess REST API Endpoints)
+# -------------------------------------------------------------------------
+
 @app.get("/", tags=["Health Check"])
 def read_root():
     return {
@@ -81,41 +150,13 @@ def read_root():
         "timestamp": datetime.utcnow().isoformat()
     }
 
-@app.post("/login", tags=["Autenticação"])
-def login(data: LoginRequest):
-    mock_users = {
-        "porteiro@jardinstatuape.com.br": {
-            "id": "98765432-e89b-12d3-a456-426614174000",
-            "nome": "Carlos Silva (Portaria Social)",
-            "email": "porteiro@jardinstatuape.com.br",
-            "role": "portaria",
-            "apartmentId": None
-        },
-        "morador101@jardinstatuape.com.br": {
-            "id": "11223344-e89b-12d3-a456-426614174000",
-            "nome": "Ana Oliveira (Bloco 1 - Apto 101)",
-            "email": "morador101@jardinstatuape.com.br",
-            "role": "morador",
-            "apartmentId": "123e4567-e89b-12d3-a456-426614174000"
-        }
-    }
-    user = mock_users.get(data.email)
-    if user:
-        return {"access_token": f"mock-jwt-token-{uuid.uuid4()}", "token_type": "bearer", "user": user}
-    return {
-        "access_token": f"mock-jwt-token-{uuid.uuid4()}",
-        "token_type": "bearer",
-        "user": {
-            "id": str(uuid.uuid4()),
-            "nome": data.email.split("@")[0].capitalize(),
-            "email": data.email,
-            "role": data.role or "portaria",
-            "apartmentId": "123e4567-e89b-12d3-a456-426614174000" if data.role == "morador" else None
-        }
-    }
+# =========================================================================
+# 📦 MÓDULO DE ENCOMENDAS (POST, GET, PUT, DELETE)
+# =========================================================================
 
 @app.post("/packages", response_model=PackageResponse, status_code=status.HTTP_201_CREATED, tags=["Encomendas"])
 def register_package(package_data: PackageCreate, current_user_id: UUID):
+    """Registra uma nova encomenda na portaria."""
     if supabase:
         try:
             new_package = {
@@ -128,7 +169,7 @@ def register_package(package_data: PackageCreate, current_user_id: UUID):
             }
             res = supabase.table("delivery_packages").insert(new_package).execute()
             if res.data and len(res.data) > 0:
-                return res.data[0] if isinstance(res.data, list) else res.data
+                return res.data[0]
         except Exception as e:
             print(f"Erro ao inserir no Supabase ({e}). Usando fallback local.")
 
@@ -149,13 +190,14 @@ def register_package(package_data: PackageCreate, current_user_id: UUID):
 
 @app.get("/apartments/{apartment_id}/packages", response_model=List[PackageResponse], tags=["Encomendas"])
 def get_apartment_packages(apartment_id: UUID, status_filter: Optional[str] = "received"):
+    """Consulta todas as encomendas de um apartamento específico."""
     if supabase:
         try:
             query = supabase.table("delivery_packages").select("*").eq("apartment_id", str(apartment_id))
             if status_filter:
                 query = query.eq("status", status_filter)
             res = query.execute()
-            if res.data is not None and len(res.data) > 0:
+            if res.data is not None:
                 return res.data
         except Exception as e:
             print(f"Erro ao consultar Supabase ({e}). Usando fallback local.")
@@ -168,6 +210,7 @@ def get_apartment_packages(apartment_id: UUID, status_filter: Optional[str] = "r
 
 @app.put("/packages/{package_id}/deliver", response_model=PackageResponse, tags=["Encomendas"])
 def deliver_package_to_resident(package_id: UUID, resident_id: UUID):
+    """Registra a retirada da encomenda pelo morador (baixa no sistema)."""
     if supabase:
         try:
             update_data = {
@@ -177,7 +220,7 @@ def deliver_package_to_resident(package_id: UUID, resident_id: UUID):
             }
             res = supabase.table("delivery_packages").update(update_data).eq("id", str(package_id)).execute()
             if res.data and len(res.data) > 0:
-                return res.data[0] if isinstance(res.data, list) else res.data
+                return res.data[0]
         except Exception as e:
             print(f"Erro ao atualizar no Supabase ({e}). Usando fallback local.")
 
@@ -189,3 +232,190 @@ def deliver_package_to_resident(package_id: UUID, resident_id: UUID):
             return pkg
             
     raise HTTPException(status_code=404, detail="Encomenda não localizada.")
+
+@app.delete("/packages/{package_id}", status_code=status.HTTP_200_OK, tags=["Encomendas"])
+def delete_package(package_id: UUID):
+    """Remove o registro de uma encomenda em caso de erro de digitação."""
+    if supabase:
+        try:
+            res = supabase.table("delivery_packages").delete().eq("id", str(package_id)).execute()
+            return {"message": "Encomenda removida com sucesso.", "id": str(package_id)}
+        except Exception as e:
+            print(f"Erro ao deletar no Supabase ({e}). Usando fallback local.")
+
+    global MOCK_PACKAGES
+    initial_len = len(MOCK_PACKAGES)
+    MOCK_PACKAGES = [pkg for pkg in MOCK_PACKAGES if pkg["id"] != str(package_id)]
+    if len(MOCK_PACKAGES) < initial_len:
+        return {"message": "Encomenda removida com sucesso.", "id": str(package_id)}
+
+    raise HTTPException(status_code=404, detail="Encomenda não localizada.")
+
+# =========================================================================
+# 👤 MÓDULO DE VISITANTES E PRESTADORES DE SERVIÇO (POST, GET, DELETE)
+# =========================================================================
+
+@app.post("/visitors", response_model=VisitorResponse, status_code=status.HTTP_201_CREATED, tags=["Visitantes"])
+def register_visitor(visitor_data: VisitorCreate):
+    """Cadastra um novo visitante, prestador de serviço ou entregador."""
+    if supabase:
+        try:
+            new_visitor = {
+                "name": visitor_data.name,
+                "document_id": visitor_data.document_id,
+                "visitor_type": visitor_data.visitor_type,
+                "company": visitor_data.company,
+                "photo_url": visitor_data.photo_url
+            }
+            res = supabase.table("visitors").insert(new_visitor).execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0]
+        except Exception as e:
+            print(f"Erro ao cadastrar visitante no Supabase ({e}). Usando fallback local.")
+
+    mock_visitor = {
+        "id": str(uuid.uuid4()),
+        "name": visitor_data.name,
+        "document_id": visitor_data.document_id,
+        "visitor_type": visitor_data.visitor_type,
+        "company": visitor_data.company,
+        "photo_url": visitor_data.photo_url,
+        "created_at": datetime.utcnow().isoformat()
+    }
+    MOCK_VISITORS.append(mock_visitor)
+    return mock_visitor
+
+@app.get("/visitors", response_model=List[VisitorResponse], tags=["Visitantes"])
+def get_visitors(document_id: Optional[str] = None):
+    """Lista todos os visitantes ou busca por documento (CPF/RG)."""
+    if supabase:
+        try:
+            query = supabase.table("visitors").select("*")
+            if document_id:
+                query = query.eq("document_id", document_id)
+            res = query.execute()
+            if res.data is not None:
+                return res.data
+        except Exception as e:
+            print(f"Erro ao consultar visitantes no Supabase ({e}). Usando fallback local.")
+
+    if document_id:
+        return [v for v in MOCK_VISITORS if v.get("document_id") == document_id]
+    return MOCK_VISITORS
+
+@app.delete("/visitors/{visitor_id}", status_code=status.HTTP_200_OK, tags=["Visitantes"])
+def delete_visitor(visitor_id: UUID):
+    """Remove o cadastro de um visitante do sistema."""
+    if supabase:
+        try:
+            res = supabase.table("visitors").delete().eq("id", str(visitor_id)).execute()
+            return {"message": "Cadastro de visitante removido com sucesso.", "id": str(visitor_id)}
+        except Exception as e:
+            print(f"Erro ao deletar visitante no Supabase ({e}). Usando fallback local.")
+
+    global MOCK_VISITORS
+    initial_len = len(MOCK_VISITORS)
+    MOCK_VISITORS = [v for v in MOCK_VISITORS if v["id"] != str(visitor_id)]
+    if len(MOCK_VISITORS) < initial_len:
+        return {"message": "Cadastro de visitante removido com sucesso.", "id": str(visitor_id)}
+
+    raise HTTPException(status_code=404, detail="Visitante não localizado.")
+
+# =========================================================================
+# 🚪 MÓDULO DE REGISTRO DE VISITAS E ENTRADAS/SAÍDAS (POST, GET, PUT, DELETE)
+# =========================================================================
+
+@app.post("/visits", response_model=VisitResponse, status_code=status.HTTP_201_CREATED, tags=["Controle de Visitas"])
+def register_visit_entry(visit_data: VisitCreate, registered_by: UUID):
+    """Registra a entrada de um visitante no condomínio com vínculo ao apartamento."""
+    if supabase:
+        try:
+            new_visit = {
+                "visitor_id": str(visit_data.visitor_id),
+                "apartment_id": str(visit_data.apartment_id),
+                "registered_by": str(registered_by),
+                "status": "active",
+                "notes": visit_data.notes
+            }
+            res = supabase.table("visit_records").insert(new_visit).execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0]
+        except Exception as e:
+            print(f"Erro ao registrar visita no Supabase ({e}). Usando fallback local.")
+
+    mock_visit = {
+        "id": str(uuid.uuid4()),
+        "visitor_id": str(visit_data.visitor_id),
+        "apartment_id": str(visit_data.apartment_id),
+        "registered_by": str(registered_by),
+        "entry_time": datetime.utcnow().isoformat(),
+        "exit_time": None,
+        "status": "active",
+        "notes": visit_data.notes
+    }
+    MOCK_VISITS.append(mock_visit)
+    return mock_visit
+
+@app.get("/visits", response_model=List[VisitResponse], tags=["Controle de Visitas"])
+def get_visits(apartment_id: Optional[UUID] = None, status_filter: Optional[str] = "active"):
+    """Lista o histórico de visitas ativas ou concluídas, opcionalmente por apartamento."""
+    if supabase:
+        try:
+            query = supabase.table("visit_records").select("*")
+            if apartment_id:
+                query = query.eq("apartment_id", str(apartment_id))
+            if status_filter:
+                query = query.eq("status", status_filter)
+            res = query.execute()
+            if res.data is not None:
+                return res.data
+        except Exception as e:
+            print(f"Erro ao buscar registros de visitas no Supabase ({e}). Usando fallback local.")
+
+    filtered = MOCK_VISITS
+    if apartment_id:
+        filtered = [v for v in filtered if str(v["apartment_id"]) == str(apartment_id)]
+    if status_filter:
+        filtered = [v for v in filtered if v["status"] == status_filter]
+    return filtered
+
+@app.put("/visits/{visit_id}/checkout", response_model=VisitResponse, tags=["Controle de Visitas"])
+def checkout_visit_exit(visit_id: UUID):
+    """Registra a saída do visitante no condomínio (baixa de visita)."""
+    if supabase:
+        try:
+            update_data = {
+                "status": "completed",
+                "exit_time": datetime.utcnow().isoformat()
+            }
+            res = supabase.table("visit_records").update(update_data).eq("id", str(visit_id)).execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0]
+        except Exception as e:
+            print(f"Erro ao registrar saída no Supabase ({e}). Usando fallback local.")
+
+    for visit in MOCK_VISITS:
+        if str(visit["id"]) == str(visit_id):
+            visit["status"] = "completed"
+            visit["exit_time"] = datetime.utcnow().isoformat()
+            return visit
+
+    raise HTTPException(status_code=404, detail="Registro de visita não localizado.")
+
+@app.delete("/visits/{visit_id}", status_code=status.HTTP_200_OK, tags=["Controle de Visitas"])
+def cancel_visit(visit_id: UUID):
+    """Cancela ou remove um registro de visita indevido."""
+    if supabase:
+        try:
+            res = supabase.table("visit_records").delete().eq("id", str(visit_id)).execute()
+            return {"message": "Registro de visita cancelado com sucesso.", "id": str(visit_id)}
+        except Exception as e:
+            print(f"Erro ao cancelar visita no Supabase ({e}). Usando fallback local.")
+
+    global MOCK_VISITS
+    initial_len = len(MOCK_VISITS)
+    MOCK_VISITS = [v for v in MOCK_VISITS if str(v["id"]) != str(visit_id)]
+    if len(MOCK_VISITS) < initial_len:
+        return {"message": "Registro de visita cancelado com sucesso.", "id": str(visit_id)}
+
+    raise HTTPException(status_code=404, detail="Registro de visita não localizado.")
