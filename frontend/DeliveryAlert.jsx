@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v9) - CondAccess
+ * DeliveryAlert Component (v10) - CondAccess
  * Componente React Acessível (WCAG 2.1 AA) de Gestão de Encomendas.
  * 
  * Melhorias e Solução de Persistência:
@@ -293,11 +293,7 @@ export default function DeliveryAlert({
           <h1 style={{ fontSize: '1.8rem', margin: 0 }}>CondAccess - Painel de Encomendas</h1>
           <p style={{ margin: '4px 0 0 0', opacity: 0.8, fontSize: '0.95rem' }}>
             Condomínio Residencial Jardins do Tatuapé
-            {user && (
-              <span style={{ fontWeight: 'bold', marginLeft: '10px', color: highContrast ? '#ffff00' : '#2563eb' }}>
-                | Perfil: {isPortaria ? 'Portaria / Admin' : 'Morador'} ({user.nome || user.email})
-              </span>
-            )}
+
           </p>
         </div>
 
@@ -457,7 +453,7 @@ export default function DeliveryAlert({
               <button onClick={fetchPackages} style={{ marginTop: '10px', padding: '8px 12px', cursor: 'pointer' }}>Tentar Novamente</button>
             </div>
           ) : packages.length === 0 ? (
-            <p style={{ fontSize: '1.1rem' }}>Nenhuma encomenda pendente na portaria.</p>
+            <p style={{ fontSize: '1.1rem' }}>{isPortaria ? "Nenhuma encomenda pendente na portaria." : "Nenhuma encomenda pendente para seu apartamento."}</p>
           ) : (
             <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {packages.map((pkg) => (
