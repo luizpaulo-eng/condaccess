@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v8) - CondAccess
+ * DeliveryAlert Component (v9) - CondAccess
  * Componente React Acessível (WCAG 2.1 AA) de Gestão de Encomendas.
  * 
  * Melhorias e Solução de Persistência:
@@ -147,12 +147,19 @@ export default function DeliveryAlert({
       saveLocalPackages(localPkgs);
     }
 
-    // Mescla API e localStorage sem duplicar IDs
+    // Mescla API e localStorage sem duplicar IDs ou combinações idênticas de apartamento/descrição
     const apiIds = new Set(apiData.map(p => p.id));
-    const merged = [
-      ...apiData,
-      ...localPkgs.filter(p => p.status === 'received' && !apiIds.has(p.id))
-    ];
+    const apiKeys = new Set(apiData.map(p => `${p.apartment_id}_${(p.description || '').trim().toLowerCase()}`));
+
+    const uniqueLocals = localPkgs.filter(p => {
+      if (p.status !== 'received') return false;
+      if (apiIds.has(p.id)) return false;
+      const key = `${p.apartment_id}_${(p.description || '').trim().toLowerCase()}`;
+      if (apiKeys.has(key)) return false;
+      return true;
+    });
+
+    const merged = [...apiData, ...uniqueLocals];
 
     setPackages(merged);
     const countMsg = merged.length === 0 
@@ -201,8 +208,9 @@ export default function DeliveryAlert({
     const aptoTxt = selectedApto ? `Apto ${selectedApto}` : '101';
     const formattedNotes = notes ? `[${blocoTxt} - ${aptoTxt}] ${notes}` : `[${blocoTxt} - ${aptoTxt}]`;
 
-    const newPkg = {
-      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `pkg-${Date.now()}`,
+    const tempId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `pkg-${Date.now()}`;
+    let savedPkg = {
+      id: tempId,
       apartment_id: effectiveApartmentId,
       description: description,
       tracking_code: trackingCode || null,
@@ -210,11 +218,6 @@ export default function DeliveryAlert({
       status: 'received',
       received_at: new Date().toISOString()
     };
-
-    // Salva no localStorage para persistência permanente no navegador
-    const currentLocals = getLocalPackages();
-    const updatedLocals = [newPkg, ...currentLocals];
-    saveLocalPackages(updatedLocals);
 
     // Tenta gravar no backend FastAPI
     try {
@@ -225,7 +228,7 @@ export default function DeliveryAlert({
         notes: formattedNotes
       };
 
-      await fetch(
+      const response = await fetch(
         `${API_BASE_URL}/packages?current_user_id=${effectiveUserId}`,
         {
           method: 'POST',
@@ -233,11 +236,32 @@ export default function DeliveryAlert({
           body: JSON.stringify(payload)
         }
       );
+
+      if (response.ok) {
+        const returnedPkg = await response.json();
+        if (returnedPkg && returnedPkg.id) {
+          savedPkg = {
+            ...returnedPkg,
+            notes: returnedPkg.notes || formattedNotes
+          };
+        }
+      }
     } catch (err) {
       console.warn('Aviso: salvo no modo de persistência local:', err);
     }
 
-    setPackages(prev => [newPkg, ...prev]);
+    // Salva o objeto retornado (com ID oficial do backend) no localStorage
+    const currentLocals = getLocalPackages();
+    const updatedLocals = [
+      savedPkg, 
+      ...currentLocals.filter(p => p.id !== tempId && p.id !== savedPkg.id && `${p.apartment_id}_${(p.description||'').trim().toLowerCase()}` !== `${savedPkg.apartment_id}_${(savedPkg.description||'').trim().toLowerCase()}`)
+    ];
+    saveLocalPackages(updatedLocals);
+
+    setPackages(prev => [
+      savedPkg, 
+      ...prev.filter(p => p.id !== tempId && p.id !== savedPkg.id && `${p.apartment_id}_${(p.description||'').trim().toLowerCase()}` !== `${savedPkg.apartment_id}_${(savedPkg.description||'').trim().toLowerCase()}`)
+    ]);
     const successAlert = `✅ Nova encomenda "${description}" cadastrada com sucesso para o ${aptoTxt}!`;
     setBannerMessage({ type: 'success', text: successAlert });
     setAnnouncement(successAlert);
