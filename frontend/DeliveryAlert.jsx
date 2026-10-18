@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v7) - CondAccess
+ * DeliveryAlert Component (v8) - CondAccess
  * Componente React Acessível (WCAG 2.1 AA) de Gestão de Encomendas.
  * 
- * Correções e Comportamentos Restaurados:
- * 1. Suporte a Perfis (Portaria vs Morador) via Props e localStorage ('condaccess_user').
- * 2. O botão "+ Receber Nova Encomenda (Portaria)" aparece APENAS para o perfil Portaria / Admin.
- * 3. Encomendas registradas na Portaria são salvas com ID válido e sincronizadas entre Portaria e Morador.
- * 4. Ao clicar em "Atualizar" ou F5, as encomendas permanecem visíveis na tela.
- * 5. Banners visíveis de confirmação na tela para cadastros e retiradas (+ leitores de tela aria-live).
- * 6. Carregamento inicial do pacote de teste (1) no Demo Portaria e Demo Morador.
+ * Melhorias e Solução de Persistência:
+ * 1. Persistência de Encomendas de Demonstração em localStorage ('condaccess_demo_pkgs'):
+ *    Garante que encomendas cadastradas na Portaria fiquem salvas ao dar F5, clicar em Atualizar
+ *    ou alternar entre "Demo Portaria" e "Demo Morador".
+ * 2. Suporte a Perfis (Portaria vs Morador) via Props e localStorage ('condaccess_user').
+ * 3. Botão "+ Receber Nova Encomenda (Portaria)" visível APENAS para o perfil Portaria / Admin.
+ * 4. Banners visíveis de confirmação na tela para cadastros e retiradas (+ leitores de tela aria-live).
+ * 5. Integração resiliente com a API FastAPI/Supabase em nuvem.
  */
 
 const getApiBaseUrl = () => {
@@ -31,6 +32,32 @@ const API_BASE_URL = getApiBaseUrl();
 const DEFAULT_APARTMENT_ID = '123e4567-e89b-12d3-a456-426614174000';
 const DEFAULT_USER_ID = '98765432-e89b-12d3-a456-426614174000';
 
+const INITIAL_DEMO_PACKAGE = {
+  id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
+  apartment_id: DEFAULT_APARTMENT_ID,
+  description: 'Pacote e-Commerce (Caixa Grande - Mercado Livre)',
+  tracking_code: 'BR987654321',
+  status: 'received',
+  received_at: new Date().toISOString(),
+  notes: 'Deixado na portaria social'
+};
+
+// Funções auxiliares para persistência em localStorage no navegador
+const getLocalPackages = () => {
+  try {
+    const raw = localStorage.getItem('condaccess_demo_pkgs');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveLocalPackages = (pkgs) => {
+  try {
+    localStorage.setItem('condaccess_demo_pkgs', JSON.stringify(pkgs));
+  } catch (e) {}
+};
+
 // Lista oficial dos 5 Blocos do Condomínio Residencial Jardins do Tatuapé
 const BLOCOS_CONDOMINIO = [
   { id: 1, nome: 'Bloco 1 - Macieira' },
@@ -45,7 +72,7 @@ export default function DeliveryAlert({
   apartmentId: aptProp = null, 
   currentUserId: userPropId = null 
 }) {
-  // Tenta obter usuário logado via Props ou localStorage
+  // Obtém o usuário logado via Props ou localStorage
   const getStoredUser = () => {
     if (userProp) return userProp;
     try {
@@ -66,10 +93,10 @@ export default function DeliveryAlert({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [announcement, setAnnouncement] = useState('');
-  const [bannerMessage, setBannerMessage] = useState(null); // Banner visível na tela
+  const [bannerMessage, setBannerMessage] = useState(null);
   const [highContrast, setHighContrast] = useState(false);
 
-  // Estados do formulário de cadastro de encomenda (Interface da Portaria)
+  // Estados do formulário de cadastro
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [selectedBloco, setSelectedBloco] = useState('1');
   const [selectedApto, setSelectedApto] = useState('101');
@@ -95,47 +122,51 @@ export default function DeliveryAlert({
     setAptosDisponiveis(lista);
   }, [selectedBloco]);
 
-  // GET /apartments/{apartment_id}/packages
+  // Consulta backend + sincroniza com localStorage
   const fetchPackages = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    let apiData = [];
     try {
       const response = await fetch(
         `${API_BASE_URL}/apartments/${effectiveApartmentId}/packages?status_filter=received`,
         { headers: { 'Accept': 'application/json' } }
       );
-      if (!response.ok) throw new Error(`Erro: ${response.status}`);
-      const data = await response.json();
-      setPackages(data);
-      const countMsg = data.length === 0 
-        ? 'Nenhuma encomenda pendente encontrada.' 
-        : `${data.length} encomenda(s) carregada(s) com sucesso.`;
-      setAnnouncement(countMsg);
+      if (response.ok) {
+        apiData = await response.json();
+      }
     } catch (err) {
-      console.error('Erro ao buscar encomendas:', err);
-      // Fallback gracioso com pacote de demonstração se backend indisponível
-      setPackages([
-        {
-          id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-          apartment_id: effectiveApartmentId,
-          description: 'Pacote e-Commerce (Caixa Grande - Mercado Livre)',
-          tracking_code: 'BR987654321',
-          status: 'received',
-          received_at: new Date().toISOString(),
-          notes: 'Deixado na portaria social'
-        }
-      ]);
-      setError(null);
-    } finally {
-      setLoading(false);
+      console.warn('Aviso: backend indisponível ou em carregamento:', err);
     }
+
+    // Carrega encomendas salvas no navegador
+    let localPkgs = getLocalPackages();
+    if (localPkgs.length === 0 && apiData.length === 0) {
+      localPkgs = [INITIAL_DEMO_PACKAGE];
+      saveLocalPackages(localPkgs);
+    }
+
+    // Mescla API e localStorage sem duplicar IDs
+    const apiIds = new Set(apiData.map(p => p.id));
+    const merged = [
+      ...apiData,
+      ...localPkgs.filter(p => p.status === 'received' && !apiIds.has(p.id))
+    ];
+
+    setPackages(merged);
+    const countMsg = merged.length === 0 
+      ? 'Nenhuma encomenda pendente encontrada.' 
+      : `${merged.length} encomenda(s) carregada(s) com sucesso.`;
+    setAnnouncement(countMsg);
+    setLoading(false);
   }, [effectiveApartmentId]);
 
   useEffect(() => {
     fetchPackages();
   }, [fetchPackages]);
 
-  // PUT /packages/{package_id}/deliver
+  // Registra a retirada
   const handleDeliverPackage = async (packageId, packageDescription) => {
     try {
       await fetch(
@@ -143,16 +174,21 @@ export default function DeliveryAlert({
         { method: 'PUT', headers: { 'Accept': 'application/json' } }
       );
     } catch (err) {
-      console.warn('Backend indisponível, registrando baixa localmente:', err);
+      console.warn('Aviso: baixa registrada localmente:', err);
     }
 
+    // Atualiza o estado local e remove do localStorage
+    const currentLocals = getLocalPackages();
+    const updatedLocals = currentLocals.filter(pkg => pkg.id !== packageId);
+    saveLocalPackages(updatedLocals);
+
     setPackages(prev => prev.filter(pkg => pkg.id !== packageId));
-    const successMsg = `Encomenda "${packageDescription}" retirada com sucesso!`;
+    const successMsg = `✅ Encomenda "${packageDescription}" confirmada como retirada com sucesso!`;
     setBannerMessage({ type: 'success', text: successMsg });
     setAnnouncement(successMsg);
   };
 
-  // POST /packages
+  // Cadastra nova encomenda
   const handleRegisterPackage = async (evt) => {
     evt.preventDefault();
     if (!description.trim()) {
@@ -175,6 +211,12 @@ export default function DeliveryAlert({
       received_at: new Date().toISOString()
     };
 
+    // Salva no localStorage para persistência permanente no navegador
+    const currentLocals = getLocalPackages();
+    const updatedLocals = [newPkg, ...currentLocals];
+    saveLocalPackages(updatedLocals);
+
+    // Tenta gravar no backend FastAPI
     try {
       const payload = {
         apartment_id: effectiveApartmentId,
@@ -192,7 +234,7 @@ export default function DeliveryAlert({
         }
       );
     } catch (err) {
-      console.warn('Salvo localmente no estado do componente:', err);
+      console.warn('Aviso: salvo no modo de persistência local:', err);
     }
 
     setPackages(prev => [newPkg, ...prev]);
