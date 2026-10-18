@@ -16,7 +16,7 @@ except ImportError:
 app = FastAPI(
     title="CondAccess API",
     description="API de Gestão e Controle de Visitas e Encomendas para o Condomínio Residencial Jardins do Tatuapé",
-    version="1.2.0"
+    version="1.3.0"
 )
 
 # Habilita suporte a CORS para o Frontend React (Vite / Localhost)
@@ -165,7 +165,6 @@ def register_package(package_data: PackageCreate, current_user_id: UUID, backgro
     """
     Registra o recebimento de uma encomenda e aciona a notificação por e-mail em segundo plano.
     """
-    # Adiciona a tarefa de envio de e-mail ao gerenciador de tarefas em segundo plano do FastAPI
     background_tasks.add_task(
         send_email_notification,
         str(package_data.apartment_id),
@@ -187,7 +186,7 @@ def register_package(package_data: PackageCreate, current_user_id: UUID, backgro
             if res.data and len(res.data) > 0:
                 return res.data[0] if isinstance(res.data, list) else res.data
         except Exception as e:
-            print(f"Erro ao inserir no Supabase ({e}). Usando fallback local.")
+            print(f"Erro ao inserir no Supabase ({e}). Usando fallback local em memória.")
 
     mock_pkg = {
         "id": str(uuid.uuid4()),
@@ -206,6 +205,7 @@ def register_package(package_data: PackageCreate, current_user_id: UUID, backgro
 
 @app.get("/apartments/{apartment_id}/packages", response_model=List[PackageResponse], tags=["Encomendas"])
 def get_apartment_packages(apartment_id: UUID, status_filter: Optional[str] = "received"):
+    db_packages = []
     if supabase:
         try:
             query = supabase.table("delivery_packages").select("*").eq("apartment_id", str(apartment_id))
@@ -213,15 +213,19 @@ def get_apartment_packages(apartment_id: UUID, status_filter: Optional[str] = "r
                 query = query.eq("status", status_filter)
             res = query.execute()
             if res.data is not None:
-                return res.data
+                db_packages = res.data
         except Exception as e:
             print(f"Erro ao consultar Supabase ({e}). Usando fallback local.")
 
-    filtered = [
+    # Combina encomendas do Supabase com o MOCK em memória (garantindo que cadastros recentes durante fallback apareçam)
+    db_ids = {p["id"] for p in db_packages}
+    local_filtered = [
         pkg for pkg in MOCK_PACKAGES 
-        if pkg["apartment_id"] == str(apartment_id) and (not status_filter or pkg["status"] == status_filter)
+        if pkg["apartment_id"] == str(apartment_id) 
+        and (not status_filter or pkg["status"] == status_filter)
+        and pkg["id"] not in db_ids
     ]
-    return filtered
+    return db_packages + local_filtered
 
 @app.put("/packages/{package_id}/deliver", response_model=PackageResponse, tags=["Encomendas"])
 def deliver_package_to_resident(package_id: UUID, resident_id: UUID):
@@ -239,7 +243,7 @@ def deliver_package_to_resident(package_id: UUID, resident_id: UUID):
             print(f"Erro ao atualizar no Supabase ({e}). Usando fallback local.")
 
     for pkg in MOCK_PACKAGES:
-        if pkg["id"] == str(package_id):
+        if str(pkg["id"]) == str(package_id):
             pkg["status"] = "delivered"
             pkg["delivered_to"] = str(resident_id)
             pkg["delivered_at"] = datetime.utcnow().isoformat()
@@ -258,7 +262,7 @@ def delete_package(package_id: UUID):
 
     global MOCK_PACKAGES
     initial_len = len(MOCK_PACKAGES)
-    MOCK_PACKAGES = [pkg for pkg in MOCK_PACKAGES if pkg["id"] != str(package_id)]
+    MOCK_PACKAGES = [pkg for pkg in MOCK_PACKAGES if str(pkg["id"]) != str(package_id)]
     if len(MOCK_PACKAGES) < initial_len:
         return {"message": "Encomenda removida com sucesso.", "id": str(package_id)}
 
@@ -323,7 +327,7 @@ def delete_visitor(visitor_id: UUID):
 
     global MOCK_VISITORS
     initial_len = len(MOCK_VISITORS)
-    MOCK_VISITORS = [v for v in MOCK_VISITORS if v["id"] != str(visitor_id)]
+    MOCK_VISITORS = [v for v in MOCK_VISITORS if str(v["id"]) != str(visitor_id)]
     if len(MOCK_VISITORS) < initial_len:
         return {"message": "Cadastro de visitante removido com sucesso.", "id": str(visitor_id)}
 
@@ -414,7 +418,7 @@ def cancel_visit(visit_id: UUID):
         except Exception as e:
             print(f"Erro ao cancelar visita no Supabase ({e}). Usando fallback local.")
 
-    global MOCK_VISITS
+    global MOCK_PACKAGES
     initial_len = len(MOCK_VISITS)
     MOCK_VISITS = [v for v in MOCK_VISITS if str(v["id"]) != str(visit_id)]
     if len(MOCK_VISITS) < initial_len:
