@@ -4,11 +4,11 @@ import DeliveryAlert from './DeliveryAlert';
 import AdminPanel from './AdminPanel';
 
 /**
- * App Component (v1) - CondAccess
+ * App Component (v3 - Master Admin Bulletproof Router) - CondAccess
  * Componente Principal e Roteador da Aplicação
  *
  * Gerencia a navegação com base no perfil do usuário logado:
- * - Administrator / Admin -> Exibe o Painel Administrativo (com alternância opcional para Painel de Encomendas)
+ * - Administrator / Admin / Master -> Exibe o Painel Administrativo (com alternância opcional para Painel de Encomendas)
  * - Portaria / Doorman -> Exibe o Painel de Encomendas (Visão Geral Portaria)
  * - Morador / Resident -> Exibe o Painel de Encomendas (Visão do Apartamento)
  */
@@ -36,8 +36,15 @@ export default function App() {
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
-    // Se for admin, garante que a visualização inicial seja o Painel Admin
-    if (userData.role === 'administrator' || userData.role === 'admin') {
+    const isUserAdmin = 
+      userData?.role === 'administrator' || 
+      userData?.role === 'admin' || 
+      userData?.is_master || 
+      userData?.email?.toLowerCase() === 'master@jardinstatuape.com.br' ||
+      userData?.email?.toLowerCase() === 'admin@jardinstatuape.com.br' ||
+      (userData?.nome && (userData.nome.includes('Master') || userData.nome.includes('Síndica')));
+
+    if (isUserAdmin) {
       setAdminView('admin');
     }
   };
@@ -53,7 +60,16 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  const isAdmin = user.role === 'administrator' || user.role === 'admin';
+  // Checagem robusta de privilégios de Administrador
+  const isAdmin = 
+    user?.role === 'administrator' || 
+    user?.role === 'admin' || 
+    user?.is_master || 
+    user?.email?.toLowerCase() === 'master@jardinstatuape.com.br' ||
+    user?.email?.toLowerCase() === 'admin@jardinstatuape.com.br' ||
+    (user?.nome && (user.nome.includes('Master') || user.nome.includes('Síndica')));
+
+  const isDoorman = !isAdmin && (user?.role === 'portaria' || user?.role === 'doorman');
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -72,7 +88,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <strong style={{ fontSize: '1.2rem', color: '#60a5fa' }}>CondAccess</strong>
           <span style={{ fontSize: '0.9rem', opacity: 0.9, backgroundColor: '#1e293b', padding: '4px 10px', borderRadius: '4px' }}>
-            Usuário: <strong>{user.nome || user.name || user.email}</strong> | Perfil: <strong>{isAdmin ? '👑 Administrador' : user.role === 'portaria' || user.role === 'doorman' ? '🛡️ Portaria' : '🏡 Morador'}</strong>
+            Usuário: <strong>{user.nome || user.name || user.email}</strong> | Perfil: <strong>{isAdmin ? (user.is_master ? '👑 Administrador Master' : '👑 Administrador') : isDoorman ? '🛡️ Portaria' : '🏡 Morador'}</strong>
           </span>
         </div>
 
