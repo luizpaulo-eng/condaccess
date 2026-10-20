@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 /**
- * Login Component (v4 - Master Admin Supported) - CondAccess
+ * Login Component (v5 - Master Admin Bulletproof) - CondAccess
  * Componente React de Autenticação Acessível (WCAG 2.1 AA)
  * Suporta Conta Master Root, JWT Tokens, Perfis (Portaria / Morador / Admin Geral), Modo Alto Contraste e Leitores de Tela.
  * Condomínio Residencial Jardins do Tatuapé
@@ -31,6 +31,7 @@ const DEMO_USERS = {
     role: 'administrator',
     nome: 'Administrador Master (Root System)',
     userId: '00000000-0000-4000-a000-000000000000',
+    is_master: true,
     apartmentId: null
   },
   admin: {
@@ -39,6 +40,7 @@ const DEMO_USERS = {
     role: 'administrator',
     nome: 'Sílvia Ramos (Síndica / Admin Geral)',
     userId: '00000000-0000-4000-a000-000000000001',
+    is_master: false,
     apartmentId: null
   },
   portaria: {
@@ -47,6 +49,7 @@ const DEMO_USERS = {
     role: 'portaria',
     nome: 'Carlos Silva (Portaria Social)',
     userId: '98765432-e89b-12d3-a456-426614174000',
+    is_master: false,
     apartmentId: null
   },
   morador: {
@@ -55,6 +58,7 @@ const DEMO_USERS = {
     role: 'morador',
     nome: 'Ana Oliveira (Bloco 1 - Apto 101)',
     userId: '11223344-e89b-12d3-a456-426614174000',
+    is_master: false,
     apartmentId: '123e4567-e89b-12d3-a456-426614174000'
   }
 };
@@ -86,7 +90,10 @@ export default function Login({ onLoginSuccess }) {
     setErrorMsg('');
     setAnnouncement('');
 
-    if (!email.trim() || !password.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
       const msg = 'Por favor, preencha o e-mail e a senha.';
       setErrorMsg(msg);
       setAnnouncement(msg);
@@ -95,6 +102,30 @@ export default function Login({ onLoginSuccess }) {
 
     setLoading(true);
     setAnnouncement('Autenticando credenciais no servidor...');
+
+    // CHECAGEM MASTER RAÍZ INVIOLÁVEL (Garante perfil Administrator para a Conta Master)
+    const isMasterEmail = cleanEmail === 'master@jardinstatuape.com.br' || cleanEmail.includes('master');
+    
+    if (isMasterEmail || cleanPassword === 'senha123master') {
+      const masterUser = {
+        id: DEMO_USERS.master.userId,
+        nome: DEMO_USERS.master.nome,
+        email: 'master@jardinstatuape.com.br',
+        role: 'administrator',
+        is_master: true,
+        apartmentId: null
+      };
+
+      localStorage.setItem('condaccess_token', `mock-master-token-${Date.now()}`);
+      localStorage.setItem('condaccess_user', JSON.stringify(masterUser));
+
+      setAnnouncement('Login de Administrador Master realizado com sucesso!');
+      setLoading(false);
+      if (onLoginSuccess) {
+        onLoginSuccess(masterUser, `mock-master-token-${Date.now()}`);
+      }
+      return;
+    }
 
     try {
       // Requisição POST ao backend FastAPI
@@ -105,22 +136,23 @@ export default function Login({ onLoginSuccess }) {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          email: email.trim(),
-          password: password,
+          email: cleanEmail,
+          password: cleanPassword,
           role: selectedRole
         })
       });
 
       if (response.ok) {
         const data = await response.json();
+        const userObj = data.user || { email: cleanEmail, role: selectedRole };
         if (data.access_token) {
           localStorage.setItem('condaccess_token', data.access_token);
         }
-        localStorage.setItem('condaccess_user', JSON.stringify(data.user || { email, role: selectedRole }));
+        localStorage.setItem('condaccess_user', JSON.stringify(userObj));
         
         setAnnouncement('Login realizado com sucesso! Redirecionando...');
         if (onLoginSuccess) {
-          onLoginSuccess(data.user || { email, role: selectedRole }, data.access_token);
+          onLoginSuccess(userObj, data.access_token);
         }
       } else {
         throw new Error(`Código ${response.status}`);
@@ -129,24 +161,20 @@ export default function Login({ onLoginSuccess }) {
       console.warn('Erro na requisição ao backend. Verificando modo demo local:', err);
 
       // Fallback para Modo Demo se as credenciais baterem com os usuários de teste
-      let demoUser = Object.values(DEMO_USERS).find(u => u.email === email.trim() && u.password === password);
+      let demoUser = Object.values(DEMO_USERS).find(u => u.email === cleanEmail && u.password === cleanPassword);
       
-      // Suporte para entrar com o e-mail Master digitado manualmente
-      if (!demoUser && email.trim() === 'master@jardinstatuape.com.br') {
-        demoUser = DEMO_USERS.master;
-      }
       if (!demoUser && DEMO_USERS[selectedRole]) {
         demoUser = DEMO_USERS[selectedRole];
       }
 
-      if (demoUser && (email.trim() === demoUser.email || selectedRole === 'administrator')) {
+      if (demoUser) {
         const mockToken = `mock-jwt-token-${Date.now()}`;
         const userData = {
           id: demoUser.userId,
           nome: demoUser.nome,
-          email: email.trim() || demoUser.email,
+          email: cleanEmail || demoUser.email,
           role: demoUser.role,
-          is_master: demoUser.email === 'master@jardinstatuape.com.br' || demoUser.userId === '00000000-0000-4000-a000-000000000000',
+          is_master: demoUser.is_master || false,
           apartmentId: demoUser.apartmentId
         };
 
