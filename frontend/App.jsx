@@ -4,30 +4,53 @@ import DeliveryAlert from './DeliveryAlert';
 import AdminPanel from './AdminPanel';
 
 /**
- * App Component (v3 - Master Admin Bulletproof Router) - CondAccess
- * Componente Principal e Roteador da Aplicação
- *
- * Gerencia a navegação com base no perfil do usuário logado:
- * - Administrator / Admin / Master -> Exibe o Painel Administrativo (com alternância opcional para Painel de Encomendas)
- * - Portaria / Doorman -> Exibe o Painel de Encomendas (Visão Geral Portaria)
- * - Morador / Resident -> Exibe o Painel de Encomendas (Visão do Apartamento)
+ * App Component (v4 - Auto-Healing Master Admin Routing) - CondAccess
+ * Componente Principal e Roteador da Aplicação com Correção Automática de Sessão
  */
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem('condaccess_user');
-      return stored ? JSON.parse(stored) : null;
+      if (!stored) return null;
+      let parsed = JSON.parse(stored);
+      
+      // AUTO-HEAL: Se o e-mail ou nome for Master, força a role para administrator e is_master para true
+      if (parsed && (parsed.email?.toLowerCase() === 'master@jardinstatuape.com.br' || parsed.is_master || parsed.nome?.includes('Master'))) {
+        parsed = {
+          ...parsed,
+          email: 'master@jardinstatuape.com.br',
+          nome: 'Administrador Master (Root System)',
+          role: 'administrator',
+          is_master: true
+        };
+        localStorage.setItem('condaccess_user', JSON.stringify(parsed));
+      }
+      return parsed;
     } catch (e) {
       return null;
     }
   });
 
-  // Estado para Administrador alternar entre o Painel Admin e a Visão da Portaria
+  // Estado para Administrador alternar entre Painel Admin e Painel de Encomendas
   const [adminView, setAdminView] = useState('admin'); // 'admin' ou 'encomendas'
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem('condaccess_user', JSON.stringify(user));
+      // Garantia contínua de integridade para a Conta Master
+      let activeUser = user;
+      if (activeUser.email?.toLowerCase() === 'master@jardinstatuape.com.br' || activeUser.is_master || activeUser.nome?.includes('Master')) {
+        if (activeUser.role !== 'administrator' || !activeUser.is_master) {
+          activeUser = {
+            ...activeUser,
+            email: 'master@jardinstatuape.com.br',
+            nome: 'Administrador Master (Root System)',
+            role: 'administrator',
+            is_master: true
+          };
+          setUser(activeUser);
+        }
+      }
+      localStorage.setItem('condaccess_user', JSON.stringify(activeUser));
     } else {
       localStorage.removeItem('condaccess_user');
       localStorage.removeItem('condaccess_token');
@@ -35,16 +58,21 @@ export default function App() {
   }, [user]);
 
   const handleLoginSuccess = (userData) => {
-    setUser(userData);
-    const isUserAdmin = 
-      userData?.role === 'administrator' || 
-      userData?.role === 'admin' || 
-      userData?.is_master || 
-      userData?.email?.toLowerCase() === 'master@jardinstatuape.com.br' ||
-      userData?.email?.toLowerCase() === 'admin@jardinstatuape.com.br' ||
-      (userData?.nome && (userData.nome.includes('Master') || userData.nome.includes('Síndica')));
-
-    if (isUserAdmin) {
+    let activeUser = userData;
+    if (activeUser && (activeUser.email?.toLowerCase() === 'master@jardinstatuape.com.br' || activeUser.is_master || activeUser.nome?.includes('Master'))) {
+      activeUser = {
+        ...activeUser,
+        email: 'master@jardinstatuape.com.br',
+        nome: 'Administrador Master (Root System)',
+        role: 'administrator',
+        is_master: true
+      };
+    }
+    setUser(activeUser);
+    localStorage.setItem('condaccess_user', JSON.stringify(activeUser));
+    
+    // Se for admin, direciona obrigatoriamente para a aba do Painel Admin
+    if (activeUser.role === 'administrator' || activeUser.role === 'admin' || activeUser.is_master) {
       setAdminView('admin');
     }
   };
@@ -60,11 +88,11 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Checagem robusta de privilégios de Administrador
+  // Checagem absoluta de privilégios de Administrador
   const isAdmin = 
     user?.role === 'administrator' || 
     user?.role === 'admin' || 
-    user?.is_master || 
+    user?.is_master === true || 
     user?.email?.toLowerCase() === 'master@jardinstatuape.com.br' ||
     user?.email?.toLowerCase() === 'admin@jardinstatuape.com.br' ||
     (user?.nome && (user.nome.includes('Master') || user.nome.includes('Síndica')));
