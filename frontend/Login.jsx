@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 /**
- * Login Component (v2) - CondAccess
+ * Login Component (v3) - CondAccess
  * Componente React de Autenticação Acessível (WCAG 2.1 AA)
  * Suporta JWT Tokens, Perfis (Portaria / Morador / Admin Geral), Modo Alto Contraste e Leitores de Tela.
  * Condomínio Residencial Jardins do Tatuapé
@@ -55,7 +55,7 @@ export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('administrator');
+  const [selectedRole, setSelectedRole] = useState('portaria');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [announcement, setAnnouncement] = useState('');
@@ -417,31 +417,14 @@ export default function Login({ onLoginSuccess }) {
           <p style={{ margin: '0 0 10px 0', fontSize: '0.85rem', opacity: 0.85, fontWeight: 'bold' }}>
             Atalhos para Teste e Avaliação Rápida (Dev Mode):
           </p>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => handleQuickDemo('admin')}
-              style={{
-                minHeight: '38px',
-                padding: '6px 10px',
-                fontSize: '0.8rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                backgroundColor: '#fef08a',
-                color: '#000000',
-                border: `1px solid ${theme.border}`,
-                borderRadius: '4px'
-              }}
-            >
-              👑 Demo Admin (Síndica/TI)
-            </button>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => handleQuickDemo('portaria')}
               style={{
-                minHeight: '38px',
-                padding: '6px 10px',
-                fontSize: '0.8rem',
+                minHeight: '40px',
+                padding: '6px 12px',
+                fontSize: '0.85rem',
                 fontWeight: '600',
                 cursor: 'pointer',
                 backgroundColor: theme.btnSecondaryBg,
@@ -456,9 +439,9 @@ export default function Login({ onLoginSuccess }) {
               type="button"
               onClick={() => handleQuickDemo('morador')}
               style={{
-                minHeight: '38px',
-                padding: '6px 10px',
-                fontSize: '0.8rem',
+                minHeight: '40px',
+                padding: '6px 12px',
+                fontSize: '0.85rem',
                 fontWeight: '600',
                 cursor: 'pointer',
                 backgroundColor: theme.btnSecondaryBg,
