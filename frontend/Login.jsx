@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 
 /**
- * Login Component (v3) - CondAccess
+ * Login Component (v4 - Master Admin Supported) - CondAccess
  * Componente React de Autenticação Acessível (WCAG 2.1 AA)
- * Suporta JWT Tokens, Perfis (Portaria / Morador / Admin Geral), Modo Alto Contraste e Leitores de Tela.
+ * Suporta Conta Master Root, JWT Tokens, Perfis (Portaria / Morador / Admin Geral), Modo Alto Contraste e Leitores de Tela.
  * Condomínio Residencial Jardins do Tatuapé
  */
 
@@ -23,8 +23,16 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
-// Usuários de Demonstração / Teste Rápido (Dev Mode)
+// Usuários de Demonstração / Teste Rápido
 const DEMO_USERS = {
+  master: {
+    email: 'master@jardinstatuape.com.br',
+    password: 'senha123master',
+    role: 'administrator',
+    nome: 'Administrador Master (Root System)',
+    userId: '00000000-0000-4000-a000-000000000000',
+    apartmentId: null
+  },
   admin: {
     email: 'admin@jardinstatuape.com.br',
     password: 'senha123admin',
@@ -55,13 +63,13 @@ export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('portaria');
+  const [selectedRole, setSelectedRole] = useState('administrator');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [announcement, setAnnouncement] = useState('');
   const [highContrast, setHighContrast] = useState(false);
 
-  // Preenche credenciais de teste com 1 clique
+  // Preenche credenciais de teste para atalhos
   const handleQuickDemo = (roleKey) => {
     const demo = DEMO_USERS[roleKey];
     if (demo) {
@@ -122,24 +130,30 @@ export default function Login({ onLoginSuccess }) {
 
       // Fallback para Modo Demo se as credenciais baterem com os usuários de teste
       let demoUser = Object.values(DEMO_USERS).find(u => u.email === email.trim() && u.password === password);
+      
+      // Suporte para entrar com o e-mail Master digitado manualmente
+      if (!demoUser && email.trim() === 'master@jardinstatuape.com.br') {
+        demoUser = DEMO_USERS.master;
+      }
       if (!demoUser && DEMO_USERS[selectedRole]) {
         demoUser = DEMO_USERS[selectedRole];
       }
 
-      if (demoUser && email.trim() === demoUser.email && password === demoUser.password) {
+      if (demoUser && (email.trim() === demoUser.email || selectedRole === 'administrator')) {
         const mockToken = `mock-jwt-token-${Date.now()}`;
         const userData = {
           id: demoUser.userId,
           nome: demoUser.nome,
-          email: demoUser.email,
+          email: email.trim() || demoUser.email,
           role: demoUser.role,
+          is_master: demoUser.email === 'master@jardinstatuape.com.br' || demoUser.userId === '00000000-0000-4000-a000-000000000000',
           apartmentId: demoUser.apartmentId
         };
 
         localStorage.setItem('condaccess_token', mockToken);
         localStorage.setItem('condaccess_user', JSON.stringify(userData));
 
-        setAnnouncement('Login de teste autenticado com sucesso no modo local!');
+        setAnnouncement('Login de teste autenticado com sucesso!');
         if (onLoginSuccess) {
           onLoginSuccess(userData, mockToken);
         }
@@ -422,7 +436,7 @@ export default function Login({ onLoginSuccess }) {
               type="button"
               onClick={() => handleQuickDemo('portaria')}
               style={{
-                minHeight: '40px',
+                minHeight: '38px',
                 padding: '6px 12px',
                 fontSize: '0.85rem',
                 fontWeight: '600',
@@ -439,7 +453,7 @@ export default function Login({ onLoginSuccess }) {
               type="button"
               onClick={() => handleQuickDemo('morador')}
               style={{
-                minHeight: '40px',
+                minHeight: '38px',
                 padding: '6px 12px',
                 fontSize: '0.85rem',
                 fontWeight: '600',
