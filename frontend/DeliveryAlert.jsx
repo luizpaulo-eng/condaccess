@@ -83,7 +83,7 @@ export default function DeliveryAlert({
   };
 
   const user = getStoredUser();
-  const isPortaria = !user || user.role === 'portaria';
+  const isPortaria = !user || ['portaria', 'doorman', 'administrator', 'admin'].includes(user?.role);
 
   // Identificador do apartamento alvo (Morador Apto 101 por padrão no Demo)
   const effectiveApartmentId = aptProp || user?.apartmentId || DEFAULT_APARTMENT_ID;
