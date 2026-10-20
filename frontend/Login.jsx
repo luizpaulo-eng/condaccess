@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 
 /**
- * Login Component (v1) - CondAccess
+ * Login Component (v2) - CondAccess
  * Componente React de Autenticação Acessível (WCAG 2.1 AA)
- * Suporta JWT Tokens, Perfis (Portaria/Morador), Modo Alto Contraste e Leitores de Tela.
+ * Suporta JWT Tokens, Perfis (Portaria / Morador / Admin Geral), Modo Alto Contraste e Leitores de Tela.
  * Condomínio Residencial Jardins do Tatuapé
  */
 
@@ -25,6 +25,14 @@ const API_BASE_URL = getApiBaseUrl();
 
 // Usuários de Demonstração / Teste Rápido (Dev Mode)
 const DEMO_USERS = {
+  admin: {
+    email: 'admin@jardinstatuape.com.br',
+    password: 'senha123admin',
+    role: 'administrator',
+    nome: 'Sílvia Ramos (Síndica / Admin Geral)',
+    userId: '00000000-0000-4000-a000-000000000001',
+    apartmentId: null
+  },
   portaria: {
     email: 'porteiro@jardinstatuape.com.br',
     password: 'senha123porteiro',
@@ -47,19 +55,19 @@ export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('portaria');
+  const [selectedRole, setSelectedRole] = useState('administrator');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [announcement, setAnnouncement] = useState('');
   const [highContrast, setHighContrast] = useState(false);
 
   // Preenche credenciais de teste com 1 clique
-  const handleQuickDemo = (role) => {
-    const demo = DEMO_USERS[role];
+  const handleQuickDemo = (roleKey) => {
+    const demo = DEMO_USERS[roleKey];
     if (demo) {
       setEmail(demo.email);
       setPassword(demo.password);
-      setSelectedRole(role);
+      setSelectedRole(demo.role);
       setErrorMsg('');
       setAnnouncement(`Credenciais de teste para ${demo.nome} preenchidas.`);
     }
@@ -97,7 +105,6 @@ export default function Login({ onLoginSuccess }) {
 
       if (response.ok) {
         const data = await response.json();
-        // Armazena Token JWT e dados da sessão
         if (data.access_token) {
           localStorage.setItem('condaccess_token', data.access_token);
         }
@@ -108,15 +115,18 @@ export default function Login({ onLoginSuccess }) {
           onLoginSuccess(data.user || { email, role: selectedRole }, data.access_token);
         }
       } else {
-        // Trata erro de autenticação ou se API não estiver rodando
         throw new Error(`Código ${response.status}`);
       }
     } catch (err) {
       console.warn('Erro na requisição ao backend. Verificando modo demo local:', err);
 
       // Fallback para Modo Demo se as credenciais baterem com os usuários de teste
-      const demoUser = DEMO_USERS[selectedRole];
-      if (email.trim() === demoUser.email && password === demoUser.password) {
+      let demoUser = Object.values(DEMO_USERS).find(u => u.email === email.trim() && u.password === password);
+      if (!demoUser && DEMO_USERS[selectedRole]) {
+        demoUser = DEMO_USERS[selectedRole];
+      }
+
+      if (demoUser && email.trim() === demoUser.email && password === demoUser.password) {
         const mockToken = `mock-jwt-token-${Date.now()}`;
         const userData = {
           id: demoUser.userId,
@@ -143,7 +153,6 @@ export default function Login({ onLoginSuccess }) {
     }
   };
 
-  // Cores do tema (Acessibilidade e Alto Contraste)
   const theme = {
     bg: highContrast ? '#000000' : '#f4f6f8',
     text: highContrast ? '#ffffff' : '#1e293b',
@@ -174,7 +183,7 @@ export default function Login({ onLoginSuccess }) {
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
       
-      {/* Região Anunciadora para Leitores de Tela (Acessibilidade) */}
+      {/* Região Anunciadora para Leitores de Tela */}
       <div 
         aria-live="polite" 
         style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(1px, 1px, 1px, 1px)' }}
@@ -183,7 +192,7 @@ export default function Login({ onLoginSuccess }) {
       </div>
 
       {/* Cabeçalho de Controle de Acessibilidade */}
-      <header style={{ width: '100%', maxWidth: '440px', display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+      <header style={{ width: '100%', maxWidth: '460px', display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
         <button
           onClick={() => setHighContrast(!highContrast)}
           style={{
@@ -206,7 +215,7 @@ export default function Login({ onLoginSuccess }) {
       {/* Card Principal do Formulário */}
       <main style={{
         width: '100%',
-        maxWidth: '440px',
+        maxWidth: '460px',
         backgroundColor: theme.cardBg,
         border: `2px solid ${theme.border}`,
         borderRadius: '12px',
@@ -220,7 +229,7 @@ export default function Login({ onLoginSuccess }) {
             CondAccess
           </h1>
           <p style={{ margin: 0, fontSize: '0.95rem', opacity: 0.85 }}>
-            Sistema Acessível de Portaria e Encomendas
+            Sistema Acessível de Portaria, Encomendas e Gestão
           </p>
           <small style={{ display: 'block', marginTop: '4px', fontSize: '0.85rem', color: highContrast ? '#ffff00' : '#2563eb', fontWeight: '600' }}>
             Condomínio Residencial Jardins do Tatuapé
@@ -249,7 +258,7 @@ export default function Login({ onLoginSuccess }) {
         {/* Formulário de Login */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           
-          {/* Seletor de Perfil (Portaria / Morador) */}
+          {/* Seletor de Perfil (Admin / Portaria / Morador) */}
           <fieldset style={{
             border: `1px solid ${theme.inputBorder}`,
             borderRadius: '6px',
@@ -259,29 +268,41 @@ export default function Login({ onLoginSuccess }) {
             <legend style={{ fontWeight: 'bold', padding: '0 6px', fontSize: '0.9rem', color: theme.text }}>
               Perfil de Acesso *
             </legend>
-            <div style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '1rem', minHeight: '36px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.95rem', minHeight: '32px' }}>
+                <input
+                  type="radio"
+                  name="userRole"
+                  value="administrator"
+                  checked={selectedRole === 'administrator' || selectedRole === 'admin'}
+                  onChange={() => setSelectedRole('administrator')}
+                  style={{ width: '18px', height: '18px' }}
+                />
+                👑 Administrador do Sistema (Síndico / TI)
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.95rem', minHeight: '32px' }}>
                 <input
                   type="radio"
                   name="userRole"
                   value="portaria"
-                  checked={selectedRole === 'portaria'}
+                  checked={selectedRole === 'portaria' || selectedRole === 'doorman'}
                   onChange={() => setSelectedRole('portaria')}
-                  style={{ width: '20px', height: '20px' }}
+                  style={{ width: '18px', height: '18px' }}
                 />
-                Portaria / Admin
+                🛡️ Portaria / Operacional
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '1rem', minHeight: '36px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.95rem', minHeight: '32px' }}>
                 <input
                   type="radio"
                   name="userRole"
                   value="morador"
-                  checked={selectedRole === 'morador'}
+                  checked={selectedRole === 'morador' || selectedRole === 'resident'}
                   onChange={() => setSelectedRole('morador')}
-                  style={{ width: '20px', height: '20px' }}
+                  style={{ width: '18px', height: '18px' }}
                 />
-                Morador
+                🏡 Morador
               </label>
             </div>
           </fieldset>
@@ -313,7 +334,7 @@ export default function Login({ onLoginSuccess }) {
             />
           </div>
 
-          {/* Campo de Senha com Opção Exibir/Ocultar */}
+          {/* Campo de Senha */}
           <div>
             <label htmlFor="login-password" style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px', fontSize: '0.95rem' }}>
               Senha de Acesso *
@@ -386,7 +407,7 @@ export default function Login({ onLoginSuccess }) {
           </button>
         </form>
 
-        {/* Seção de Atalho para Testes de Demonstração (Dev / Avaliação) */}
+        {/* Seção de Atalhos para Testes de Demonstração (Dev / Avaliação) */}
         <section style={{
           marginTop: '28px',
           paddingTop: '20px',
@@ -396,14 +417,31 @@ export default function Login({ onLoginSuccess }) {
           <p style={{ margin: '0 0 10px 0', fontSize: '0.85rem', opacity: 0.85, fontWeight: 'bold' }}>
             Atalhos para Teste e Avaliação Rápida (Dev Mode):
           </p>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => handleQuickDemo('admin')}
+              style={{
+                minHeight: '38px',
+                padding: '6px 10px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                backgroundColor: '#fef08a',
+                color: '#000000',
+                border: `1px solid ${theme.border}`,
+                borderRadius: '4px'
+              }}
+            >
+              👑 Demo Admin (Síndica/TI)
+            </button>
             <button
               type="button"
               onClick={() => handleQuickDemo('portaria')}
               style={{
-                minHeight: '40px',
-                padding: '6px 12px',
-                fontSize: '0.85rem',
+                minHeight: '38px',
+                padding: '6px 10px',
+                fontSize: '0.8rem',
                 fontWeight: '600',
                 cursor: 'pointer',
                 backgroundColor: theme.btnSecondaryBg,
@@ -412,15 +450,15 @@ export default function Login({ onLoginSuccess }) {
                 borderRadius: '4px'
               }}
             >
-              Demo Portaria
+              🛡️ Demo Portaria
             </button>
             <button
               type="button"
               onClick={() => handleQuickDemo('morador')}
               style={{
-                minHeight: '40px',
-                padding: '6px 12px',
-                fontSize: '0.85rem',
+                minHeight: '38px',
+                padding: '6px 10px',
+                fontSize: '0.8rem',
                 fontWeight: '600',
                 cursor: 'pointer',
                 backgroundColor: theme.btnSecondaryBg,
@@ -429,7 +467,7 @@ export default function Login({ onLoginSuccess }) {
                 borderRadius: '4px'
               }}
             >
-              Demo Morador
+              🏡 Demo Morador
             </button>
           </div>
         </section>
