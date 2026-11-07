@@ -28,6 +28,19 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+const getBrtTimestamp = () => {
+  try {
+    const now = new Date();
+    const d = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+    const t = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+    return `${d} ${t}`;
+  } catch (e) {
+    const now = new Date();
+    return now.toISOString();
+  }
+};
+
+
 // Conta Master do Sistema + Usuários Padrão para Demonstração
 const INITIAL_ADMIN_USERS = [
   { 
@@ -207,7 +220,7 @@ export default function AdminPanel({ user = null, onLogout = null }) {
 
       // Adiciona ao Log de Auditoria
       try {
-        const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+        const timestamp = getBrtTimestamp();
         const logEntry = `[${timestamp}] Conta Master cadastrou novo usuário: "${newName}" (${newEmail}) com perfil ${newRole.toUpperCase()}.`;
         const rawLogs = localStorage.getItem('condaccess_audit_logs');
         const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
@@ -220,7 +233,7 @@ export default function AdminPanel({ user = null, onLogout = null }) {
       
       // Log do disparo de e-mail
       try {
-        const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+        const timestamp = getBrtTimestamp();
         const emailLogEntry = `[${timestamp}] Disparo de e-mail de boas-vindas enviado para ${newEmail.trim().toLowerCase()} (Serviço de E-mail/SMTP).`;
         const rawLogs = localStorage.getItem('condaccess_audit_logs');
         const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
@@ -554,10 +567,10 @@ export default function AdminPanel({ user = null, onLogout = null }) {
           } catch (e) {}
 
           const defaultLogs = [
-            "[2026-10-19 18:00] Conta Master master@jardinstatuape.com.br cadastrou novo usuário no sistema com perfil de Administrador.",
-            "[2026-10-19 17:15] Usuario admin@jardinstatuape.com.br autenticado no painel.",
-            "[2026-10-19 16:40] Porteiro Carlos Silva registrou nova encomenda para o Bloco 1 - Apto 101 (Notificação por e-mail disparada).",
-            "[2026-10-19 15:20] Moradora Ana Oliveira confirmou a baixa/retirada de pacote no painel do morador."
+            "[19-10-2026 18:00] Conta Master master@jardinstatuape.com.br cadastrou novo usuário no sistema com perfil de Administrador.",
+            "[19-10-2026 17:15] Usuario admin@jardinstatuape.com.br autenticado no painel.",
+            "[19-10-2026 16:40] Porteiro Carlos Silva registrou nova encomenda para o Bloco 1 - Apto 101 (Notificação por e-mail disparada).",
+            "[19-10-2026 15:20] Moradora Ana Oliveira confirmou a baixa/retirada de pacote no painel do morador."
           ];
 
           const allLogs = [...customLogs, ...defaultLogs];
