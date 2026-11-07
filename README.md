@@ -17,8 +17,8 @@
 <!-- ========================================================== -->
 <!-- ATENÇÃO: INÍCIO DA ÁREA PROTEGIDA DO CONDACCESS, NÃO ALTERAR OU REMOVER AS TAGS ABAIXO -->
 <!-- ========================================================== -->
-  > **Universidade Virtual do Estado de São Paulo - UNIVESP**</br>
-> **Projeto Integrador em Computação II - PJI240 - DRP14**  
+  > **Fundação Universidade Virtual do Estado de São Paulo - UNIVESP**</br>
+> **Projeto Integrador em Computação II - PJI240 - DRP14 - Turma 004**  
 > 2º Semestre de 2026
 <!-- ========================================================== -->
 <!-- ATENÇÃO: FIM DA ÁREA PROTEGIDA DO CONDACCESS, NÃO ALTERAR OU REMOVER AS TAGS ACIMA -->
