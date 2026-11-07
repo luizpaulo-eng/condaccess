@@ -4,7 +4,7 @@
 <div align="center">
   <img src="assets/logo_condaccess228x160px1509260138.png" alt="Logo CondAccess" width="228" height="160" />
 
-  ## Sistema Web Acessível para Gestão e Controle de Visitas e Encomendas em Condomínios Residenciais
+  ## Sistema Web Acessível para Gestão e Controle de Visitas e Encomendas em Condomínio Residencial
 <!-- ========================================================== -->
 <!-- ATENÇÃO: FIM DA ÁREA PROTEGIDA DO CONDACCESS, NÃO ALTERAR OU REMOVER AS TAGS ACIMA -->
 <!-- ========================================================== -->
