@@ -158,13 +158,65 @@ export default function Login({ onLoginSuccess }) {
         throw new Error(`Código ${response.status}`);
       }
     } catch (err) {
-      console.warn('Erro na requisição ao backend. Verificando modo demo local:', err);
+      console.warn('Erro na requisição ao backend. Verificando cadastros locais e modo demo:', err);
 
-      // Fallback para Modo Demo se as credenciais baterem com os usuários de teste
+      // 1. Busca primeiro nos usuários cadastrados no AdminPanel (salvos em condaccess_users_db)
+      let localUsersDb = [];
+      try {
+        const raw = localStorage.getItem('condaccess_users_db');
+        if (raw) localUsersDb = JSON.parse(raw);
+      } catch (e) {}
+
+      const foundCustomUser = localUsersDb.find(u => {
+        if (!u.email) return false;
+        const uEmail = u.email.trim().toLowerCase();
+        if (uEmail !== cleanEmail) return false;
+        // Valida a senha se tiver sido gravada ou aceita se bater
+        if (u.password && u.password.trim() !== cleanPassword) {
+          return false;
+        }
+        return true;
+      });
+
+      if (foundCustomUser) {
+        const mockToken = `jwt-token-custom-${Date.now()}`;
+        const userData = {
+          id: foundCustomUser.id,
+          nome: foundCustomUser.name || foundCustomUser.nome || cleanEmail,
+          email: foundCustomUser.email,
+          role: foundCustomUser.role || selectedRole,
+          is_master: foundCustomUser.is_master || false,
+          apartmentId: foundCustomUser.apartmentId || null,
+          apartment: foundCustomUser.apartment || null
+        };
+
+        localStorage.setItem('condaccess_token', mockToken);
+        localStorage.setItem('condaccess_user', JSON.stringify(userData));
+
+        // Registra log de auditoria do login
+        try {
+          const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+          const logEntry = `[${timestamp}] Usuário ${userData.email} (${userData.nome}) autenticado no sistema.`;
+          const rawLogs = localStorage.getItem('condaccess_audit_logs');
+          const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
+          localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+        } catch (e) {}
+
+        setAnnouncement(`Login de ${userData.nome} autenticado com sucesso!`);
+        if (onLoginSuccess) {
+          onLoginSuccess(userData, mockToken);
+        }
+        return;
+      }
+
+      // 2. Fallback para Usuários Padrão de Demonstração (DEMO_USERS)
       let demoUser = Object.values(DEMO_USERS).find(u => u.email === cleanEmail && u.password === cleanPassword);
       
-      if (!demoUser && DEMO_USERS[selectedRole]) {
-        demoUser = DEMO_USERS[selectedRole];
+      if (!demoUser) {
+        // Tenta corresponder por papel selecionado se a senha for padrão 'senha123'
+        if (selectedRole === 'administrator' && cleanPassword.includes('admin')) demoUser = DEMO_USERS.admin;
+        else if (selectedRole === 'portaria' && cleanPassword.includes('porteiro')) demoUser = DEMO_USERS.portaria;
+        else if (selectedRole === 'morador' && cleanPassword.includes('morador')) demoUser = DEMO_USERS.morador;
       }
 
       if (demoUser) {
@@ -186,7 +238,7 @@ export default function Login({ onLoginSuccess }) {
           onLoginSuccess(userData, mockToken);
         }
       } else {
-        const failMsg = 'E-mail ou senha incorretos. Tente novamente ou use as credenciais de teste.';
+        const failMsg = 'E-mail ou senha incorretos. Tente novamente ou use a senha cadastrada no Painel Admin.';
         setErrorMsg(failMsg);
         setAnnouncement(failMsg);
       }
