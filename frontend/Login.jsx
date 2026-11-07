@@ -23,6 +23,19 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+const getBrtTimestamp = () => {
+  try {
+    const now = new Date();
+    const d = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+    const t = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+    return `${d} ${t}`;
+  } catch (e) {
+    const now = new Date();
+    return now.toISOString();
+  }
+};
+
+
 // Usuários de Demonstração / Teste Rápido
 const DEMO_USERS = {
   master: {
@@ -119,6 +132,14 @@ export default function Login({ onLoginSuccess }) {
       localStorage.setItem('condaccess_token', `mock-master-token-${Date.now()}`);
       localStorage.setItem('condaccess_user', JSON.stringify(masterUser));
 
+      try {
+        const timestamp = getBrtTimestamp();
+        const logEntry = `[${timestamp}] Usuário master@jardinstatuape.com.br (Administrador Master) autenticado no sistema.`;
+        const rawLogs = localStorage.getItem('condaccess_audit_logs');
+        const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
+        localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+      } catch (e) {}
+
       setAnnouncement('Login de Administrador Master realizado com sucesso!');
       setLoading(false);
       if (onLoginSuccess) {
@@ -195,7 +216,7 @@ export default function Login({ onLoginSuccess }) {
 
         // Registra log de auditoria do login
         try {
-          const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+          const timestamp = getBrtTimestamp();
           const logEntry = `[${timestamp}] Usuário ${userData.email} (${userData.nome}) autenticado no sistema.`;
           const rawLogs = localStorage.getItem('condaccess_audit_logs');
           const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
@@ -232,6 +253,14 @@ export default function Login({ onLoginSuccess }) {
 
         localStorage.setItem('condaccess_token', mockToken);
         localStorage.setItem('condaccess_user', JSON.stringify(userData));
+
+        try {
+          const timestamp = getBrtTimestamp();
+          const logEntry = `[${timestamp}] Usuário ${userData.email} (${userData.nome}) autenticado no sistema.`;
+          const rawLogs = localStorage.getItem('condaccess_audit_logs');
+          const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
+          localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+        } catch (e) {}
 
         setAnnouncement('Login de teste autenticado com sucesso!');
         if (onLoginSuccess) {
