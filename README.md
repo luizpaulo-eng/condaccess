@@ -68,19 +68,28 @@ Desenvolver e aplicar um sistema web acessível e moderno que automatize o regis
 
 ---
 
-## 🚀 Consolidação Prática da Portaria e Testes de Acessibilidade
+## 🚀 Consolidação Prática da Portaria, Visitantes e Governança
 
-Nesta etapa, o projeto transicionou da fase teórica para a **consolidação prática e funcional** do módulo de portaria, integrando a interface ao backend e ao banco de dados relacional e realizando validações empíricas de acessibilidade:
+Nesta etapa de homologação em produção, o sistema consolidou seus módulos funcionais integrando a interface React.js ao backend FastAPI e ao banco relacional no Supabase Cloud:
 
-### 📦 1. Módulo de Recebimento na Portaria e Seletores Dinâmicos
-* **Mapeamento Estruturado do Condomínio:** Cadastramento dos blocos e das unidades habitacionais (andares por bloco, apartamentos).
-* **Seleção Encadeada Dinâmica:** O formulário de recebimento da portaria filtra os apartamentos instantaneamente conforme o bloco selecionado.
-* **Integração REST End-to-End:** Envio das requisições via `POST /packages` vinculando dados de localização, código de rastreio e observações diretamente ao PostgreSQL no Supabase.
+### 📦 1. Módulo de Gestão de Encomendas na Portaria
+* **Mapeamento Estruturado das 340 Unidades:** Cadastramento unificado dos 5 blocos (*Macieira, Pereira, Nogueira, Amoreira e Cerejeira*) com 68 apartamentos por bloco (Aptos 11 ao 174).
+* **Formulário com Seleção Encadeada:** Filtragem automática do seletor de apartamentos de acordo com o bloco selecionado pelo porteiro.
+* **Persistência Local e Sincronização REST:** Registro e baixa de encomendas via `POST /packages` e `PUT /packages/{id}/deliver` com persistência em `localStorage` (`'condaccess_demo_pkgs'`).
 
-### ♿ 2. Validação Empírica de Acessibilidade (WCAG 2.1 AA / WAI-ARIA)
-* **Região Acessível (`aria-live="polite"`):** Implementação de avisos em segundo plano com técnica CSS de ocultamento visual (`clip: rect(1px, 1px, 1px, 1px)`), transmitindo alertas exclusivamente a tecnologias assistivas sem causar poluição visual.
-* **Teste com Leitor de Tela:** Validação executada com o **Narrador do Windows** (`Win + Ctrl + Enter`), comprovando a narração em áudio do cadastro e da confirmação de retirada de pacotes.
-* **Inspeção de DOM em Tempo Real:** Verificação via **DevTools (F12)**, atestando a atualização dinâmica dos atributos acessíveis no DOM durante os eventos da aplicação.
+### 🚪 2. Módulo de Portaria Social & Visitantes
+* **Controle de Visitantes e Prestadores:** Interface dedicada para cadastro de visitantes sociais, entregadores e prestadores de serviços.
+* **Persistência e Baixa em Tempo Real:** Manutenção dos registros ativos em `localStorage` (`'condaccess_demo_visitors'`), evitando perda de dados ao recarregar a página, com botão individual de `Registrar Saída`.
+
+### 👑 3. Governança e Painel Administrador Master
+* **Gestão Total de Contas e Perfis (RBAC):** Proteção da Conta Root/Master inviolável (`master@jardinstatuape.com.br`) e cadastro de perfis para Administradores (Síndico / TI), Portaria, Zeladoria e Moradores.
+* **Notificação de Credenciais por E-mail:** Disparo simulado e notificação visual de envio de e-mail de boas-vindas com senha de acesso ao cadastrar novos usuários.
+* **Logs de Auditoria no Fuso Horário de Brasília (BRT):** Registro cronológico imutável com data no padrão brasileiro e horário oficial de Brasília (`DD-MM-YYYY HH:mm` America/Sao_Paulo).
+
+### ♿ 4. Validação Empírica de Acessibilidade (WCAG 2.1 AA / WAI-ARIA)
+* **Regiões Anunciadoras em Tempo Real (`aria-live="polite"`):** Transmissão de alertas e confirmações de ações diretamente a leitores de tela sem causar poluição visual.
+* **Validação com Narrador do Windows:** Teste prático de navegação por teclado (`Tab`, `Shift+Tab`, `Enter`, `Setas`) e síntese de voz nativa do Windows (`Win + Ctrl + Enter`).
+* **Interface de Alto Contraste:** Alternância para modo escuro com contraste estrito (> 7:1) adaptado para idosos e pessoas com baixa visão.
 
 ---
 
