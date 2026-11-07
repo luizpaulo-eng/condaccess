@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v10) - CondAccess
- * Componente React Acessível (WCAG 2.1 AA) de Gestão de Encomendas.
+ * DeliveryAlert Component (v12) - CondAccess
+ * Componente React Acessível (WCAG 2.1 AA / WAI-ARIA) de Gestão de Portaria.
  * 
- * Melhorias e Solução de Persistência:
- * 1. Persistência de Encomendas de Demonstração em localStorage ('condaccess_demo_pkgs'):
- *    Garante que encomendas cadastradas na Portaria fiquem salvas ao dar F5, clicar em Atualizar
- *    ou alternar entre "Demo Portaria" e "Demo Morador".
- * 2. Suporte a Perfis (Portaria vs Morador) via Props e localStorage ('condaccess_user').
- * 3. Botão "+ Receber Nova Encomenda (Portaria)" visível APENAS para o perfil Portaria / Admin.
- * 4. Banners visíveis de confirmação na tela para cadastros e retiradas (+ leitores de tela aria-live).
- * 5. Integração resiliente com a API FastAPI/Supabase em nuvem.
+ * Novas Funcionalidades:
+ * 1. Abas de Navegação na Portaria:
+ *    - "📦 Gestão de Encomendas" (Controle de correspondências, entregas e baixas)
+ *    - "🚪 Portaria Social & Visitantes" (Controle de visitantes, prestadores de serviço e entregadores)
+ * 2. Módulo Integrado de Controle de Visitantes (VisitorManager) com suporte a Alto Contraste.
+ * 3. Persistência Local e Sincronização com API FastAPI/Supabase em nuvem.
+ * 4. Acessibilidade Total: WAI-ARIA (aria-live, tablist, tab), atalhos por teclado e modo de Alto Contraste.
  */
 
 const getApiBaseUrl = () => {
@@ -42,7 +41,6 @@ const INITIAL_DEMO_PACKAGE = {
   notes: 'Deixado na portaria social'
 };
 
-// Funções auxiliares para persistência em localStorage no navegador
 const getLocalPackages = () => {
   try {
     const raw = localStorage.getItem('condaccess_demo_pkgs');
@@ -58,7 +56,6 @@ const saveLocalPackages = (pkgs) => {
   } catch (e) {}
 };
 
-// Lista oficial dos 5 Blocos do Condomínio Residencial Jardins do Tatuapé
 const BLOCOS_CONDOMINIO = [
   { id: 1, nome: 'Bloco 1 - Macieira' },
   { id: 2, nome: 'Bloco 2 - Pereira' },
@@ -67,12 +64,334 @@ const BLOCOS_CONDOMINIO = [
   { id: 5, nome: 'Bloco 5 - Cerejeira' }
 ];
 
+/* ==========================================================================
+   SUB-COMPONENTE: VISITOR MANAGER (MÓDULO DE VISITANTES E PRESTADORES)
+   ========================================================================== */
+function VisitorManagerSection({ isHighContrast = false }) {
+  const [activeVisits, setActiveVisits] = useState([
+    {
+      id: 'v1',
+      visitor_name: 'Carlos Eduardo Mendes',
+      document_id: '345.678.901-22',
+      visitor_type: 'contractor',
+      company: 'Manutenção de Elevadores Otis',
+      block: 'Bloco 2 - Pereira',
+      apartment: '304',
+      entry_time: '14:30',
+      status: 'active'
+    },
+    {
+      id: 'v2',
+      visitor_name: 'Mariana Souza Santos',
+      document_id: '234.567.890-11',
+      visitor_type: 'visitor',
+      company: 'Particular',
+      block: 'Bloco 1 - Macieira',
+      apartment: '101',
+      entry_time: '15:15',
+      status: 'active'
+    }
+  ]);
+
+  const [name, setName] = useState('');
+  const [documentId, setDocumentId] = useState('');
+  const [visitorType, setVisitorType] = useState('visitor');
+  const [company, setCompany] = useState('');
+  const [selectedBlock, setSelectedBlock] = useState('Bloco 1 - Macieira');
+  const [selectedApartment, setSelectedApartment] = useState('11');
+
+  const [announcement, setAnnouncement] = useState('');
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState('');
+
+  const blocks = [
+    'Bloco 1 - Macieira',
+    'Bloco 2 - Pereira',
+    'Bloco 3 - Nogueira',
+    'Bloco 4 - Amoreira',
+    'Bloco 5 - Cerejeira'
+  ];
+
+  // 68 unidades por bloco (Aptos 11 ao 174)
+  const apartments = Array.from({ length: 68 }, (_, i) => `${(Math.floor(i / 4) + 1) * 10 + (i % 4 + 1)}`);
+
+  const handleRegisterEntry = (e) => {
+    e.preventDefault();
+    if (!name.trim() || !documentId.trim()) return;
+
+    const newVisit = {
+      id: `v_${Date.now()}`,
+      visitor_name: name.trim(),
+      document_id: documentId.trim(),
+      visitor_type: visitorType,
+      company: company.trim() || (visitorType === 'visitor' ? 'Particular' : 'Indefinida'),
+      block: selectedBlock,
+      apartment: selectedApartment,
+      entry_time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      status: 'active'
+    };
+
+    setActiveVisits([newVisit, ...activeVisits]);
+
+    const typeLabel = visitorType === 'contractor' ? 'Prestador de serviço' : visitorType === 'delivery_person' ? 'Entregador' : 'Visitante';
+    const msg = `✅ Entrada de ${typeLabel} "${name}" registrada para o ${selectedBlock}, Apartamento ${selectedApartment}.`;
+    
+    setAnnouncement(msg);
+    setBannerMessage(msg);
+    setShowSuccessBanner(true);
+
+    setName('');
+    setDocumentId('');
+    setCompany('');
+
+    setTimeout(() => setShowSuccessBanner(false), 5000);
+  };
+
+  const handleCheckout = (id, visitorName) => {
+    setActiveVisits(activeVisits.filter(visit => visit.id !== id));
+    const msg = `✅ Saída de ${visitorName} registrada com sucesso.`;
+    setAnnouncement(msg);
+    setBannerMessage(msg);
+    setShowSuccessBanner(true);
+    setTimeout(() => setShowSuccessBanner(false), 4000);
+  };
+
+  const themeStyles = {
+    card: {
+      backgroundColor: isHighContrast ? '#111111' : '#ffffff',
+      border: isHighContrast ? '2px solid #ffff00' : '1px solid #e2e8f0',
+      borderRadius: '8px',
+      padding: '20px',
+      marginBottom: '24px'
+    },
+    input: {
+      width: '100%',
+      minHeight: '44px',
+      padding: '8px 12px',
+      borderRadius: '4px',
+      border: isHighContrast ? '2px solid #ffff00' : '1px solid #cbd5e1',
+      backgroundColor: isHighContrast ? '#000000' : '#ffffff',
+      color: isHighContrast ? '#ffffff' : '#0f172a',
+      fontSize: '1rem',
+      boxSizing: 'border-box'
+    },
+    buttonPrimary: {
+      backgroundColor: isHighContrast ? '#ffff00' : '#2563eb',
+      color: isHighContrast ? '#000000' : '#ffffff',
+      border: 'none',
+      borderRadius: '6px',
+      padding: '12px 20px',
+      fontWeight: 'bold',
+      fontSize: '1rem',
+      cursor: 'pointer',
+      minHeight: '48px'
+    },
+    buttonDanger: {
+      backgroundColor: isHighContrast ? '#ff0000' : '#dc2626',
+      color: '#ffffff',
+      border: 'none',
+      borderRadius: '4px',
+      padding: '8px 14px',
+      fontWeight: 'bold',
+      fontSize: '0.9rem',
+      cursor: 'pointer',
+      minHeight: '40px'
+    },
+    badge: (type) => ({
+      padding: '4px 8px',
+      borderRadius: '4px',
+      fontSize: '0.85rem',
+      fontWeight: 'bold',
+      backgroundColor: isHighContrast 
+        ? (type === 'contractor' ? '#ff9900' : type === 'delivery_person' ? '#00ffff' : '#00ff00')
+        : (type === 'contractor' ? '#ffe4e6' : type === 'delivery_person' ? '#e0f2fe' : '#dcfce7'),
+      color: isHighContrast 
+        ? '#000000'
+        : (type === 'contractor' ? '#9f1239' : type === 'delivery_person' ? '#075985' : '#166534')
+    })
+  };
+
+  return (
+    <section aria-label="Controle de Visitantes e Prestadores">
+      {/* REGIÃO ARIA-LIVE */}
+      <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(1px, 1px, 1px, 1px)' }}>
+        {announcement}
+      </div>
+
+      {showSuccessBanner && (
+        <div role="status" style={{
+          marginBottom: '20px',
+          padding: '14px 20px',
+          backgroundColor: isHighContrast ? '#003300' : '#dcfce7',
+          color: isHighContrast ? '#00ff00' : '#14532d',
+          border: `2px solid ${isHighContrast ? '#00ff00' : '#86efac'}`,
+          borderRadius: '8px',
+          fontWeight: 'bold',
+          fontSize: '1rem'
+        }}>
+          {bannerMessage}
+        </div>
+      )}
+
+      {/* FORMULÁRIO DE CADASTRO DE VISITANTE */}
+      <div style={themeStyles.card}>
+        <h2 style={{ marginTop: 0, fontSize: '1.3rem', color: isHighContrast ? '#ffff00' : '#1e293b' }}>
+          ➕ Registrar Nova Entrada de Visitante / Prestador
+        </h2>
+        <form onSubmit={handleRegisterEntry} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+          <div>
+            <label htmlFor="vis-name" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Nome Completo *</label>
+            <input 
+              id="vis-name"
+              type="text" 
+              required 
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+              placeholder="Ex: João da Silva"
+              style={themeStyles.input}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="vis-doc" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Documento (CPF / RG) *</label>
+            <input 
+              id="vis-doc"
+              type="text" 
+              required 
+              value={documentId} 
+              onChange={(e) => setDocumentId(e.target.value)} 
+              placeholder="Ex: 123.456.789-00"
+              style={themeStyles.input}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="vis-type" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Tipo de Acesso *</label>
+            <select 
+              id="vis-type"
+              value={visitorType} 
+              onChange={(e) => setVisitorType(e.target.value)}
+              style={themeStyles.input}
+            >
+              <option value="visitor">Visitante Social</option>
+              <option value="contractor">Prestador de Serviço / Técnico</option>
+              <option value="delivery_person">Entregador / Courier</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="vis-company" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Empresa / Organização</label>
+            <input 
+              id="vis-company"
+              type="text" 
+              value={company} 
+              onChange={(e) => setCompany(e.target.value)} 
+              placeholder="Ex: Enel, Comgás, Mercado Livre..."
+              style={themeStyles.input}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="vis-block" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Bloco de Destino *</label>
+            <select 
+              id="vis-block"
+              value={selectedBlock} 
+              onChange={(e) => setSelectedBlock(e.target.value)}
+              style={themeStyles.input}
+            >
+              {blocks.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="vis-apt" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Apartamento *</label>
+            <select 
+              id="vis-apt"
+              value={selectedApartment} 
+              onChange={(e) => setSelectedApartment(e.target.value)}
+              style={themeStyles.input}
+            >
+              {apartments.map(apt => <option key={apt} value={apt}>Apto {apt}</option>)}
+            </select>
+          </div>
+
+          <div style={{ gridColumn: '1 / -1', marginTop: '8px' }}>
+            <button type="submit" style={themeStyles.buttonPrimary}>
+              Confirmar e Autorizar Entrada (Portaria Social)
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* LISTA DE VISITANTES NO CONDOMÍNIO */}
+      <div style={themeStyles.card}>
+        <h3 style={{ marginTop: 0, fontSize: '1.2rem', color: isHighContrast ? '#ffff00' : '#1e293b', marginBottom: '16px' }}>
+          📋 Visitantes e Prestadores Atualmente no Condomínio ({activeVisits.length})
+        </h3>
+
+        {activeVisits.length === 0 ? (
+          <p style={{ textAlign: 'center', opacity: 0.8, padding: '20px 0' }}>
+            Nenhum visitante ou prestador no interior do condomínio neste momento.
+          </p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: isHighContrast ? '2px solid #ffff00' : '2px solid #e2e8f0' }}>
+                  <th style={{ padding: '12px' }}>Nome / Documento</th>
+                  <th style={{ padding: '12px' }}>Tipo</th>
+                  <th style={{ padding: '12px' }}>Empresa</th>
+                  <th style={{ padding: '12px' }}>Destino</th>
+                  <th style={{ padding: '12px' }}>Entrada</th>
+                  <th style={{ padding: '12px', textAlign: 'right' }}>Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeVisits.map((visit) => (
+                  <tr key={visit.id} style={{ borderBottom: isHighContrast ? '1px solid #333333' : '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '12px' }}>
+                      <strong>{visit.visitor_name}</strong>
+                      <br />
+                      <small style={{ opacity: 0.8 }}>Doc: {visit.document_id}</small>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={themeStyles.badge(visit.visitor_type)}>
+                        {visit.visitor_type === 'contractor' ? 'Prestador' : visit.visitor_type === 'delivery_person' ? 'Entregador' : 'Visitante'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px' }}>{visit.company}</td>
+                    <td style={{ padding: '12px' }}>
+                      {visit.block} — <strong>Apto {visit.apartment}</strong>
+                    </td>
+                    <td style={{ padding: '12px' }}>{visit.entry_time}</td>
+                    <td style={{ padding: '12px', textAlign: 'right' }}>
+                      <button 
+                        onClick={() => handleCheckout(visit.id, visit.visitor_name)}
+                        style={themeStyles.buttonDanger}
+                        aria-label={`Registrar saída de ${visit.visitor_name}`}
+                      >
+                        Registrar Saída
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ==========================================================================
+   COMPONENTE PRINCIPAL: DELIVERY ALERT (COM ABAS DE NAVEGAÇÃO)
+   ========================================================================== */
 export default function DeliveryAlert({ 
   user: userProp = null,
   apartmentId: aptProp = null, 
   currentUserId: userPropId = null 
 }) {
-  // Obtém o usuário logado via Props ou localStorage
   const getStoredUser = () => {
     if (userProp) return userProp;
     try {
@@ -85,9 +404,11 @@ export default function DeliveryAlert({
   const user = getStoredUser();
   const isPortaria = !user || ['portaria', 'doorman', 'administrator', 'admin'].includes(user?.role);
 
-  // Identificador do apartamento alvo (Morador Apto 101 por padrão no Demo)
   const effectiveApartmentId = aptProp || user?.apartmentId || DEFAULT_APARTMENT_ID;
   const effectiveUserId = userPropId || user?.id || DEFAULT_USER_ID;
+
+  // Estado da Aba Ativa ('deliveries' ou 'visitors')
+  const [activeTab, setActiveTab] = useState('deliveries');
 
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +417,6 @@ export default function DeliveryAlert({
   const [bannerMessage, setBannerMessage] = useState(null);
   const [highContrast, setHighContrast] = useState(false);
 
-  // Estados do formulário de cadastro
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [selectedBloco, setSelectedBloco] = useState('1');
   const [selectedApto, setSelectedApto] = useState('101');
@@ -106,7 +426,6 @@ export default function DeliveryAlert({
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Atualiza a lista de apartamentos (11 a 174) conforme o bloco selecionado
   useEffect(() => {
     if (!selectedBloco) {
       setAptosDisponiveis([]);
@@ -122,7 +441,6 @@ export default function DeliveryAlert({
     setAptosDisponiveis(lista);
   }, [selectedBloco]);
 
-  // Consulta backend + sincroniza com localStorage
   const fetchPackages = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -140,14 +458,12 @@ export default function DeliveryAlert({
       console.warn('Aviso: backend indisponível ou em carregamento:', err);
     }
 
-    // Carrega encomendas salvas no navegador
     let localPkgs = getLocalPackages();
     if (localPkgs.length === 0 && apiData.length === 0) {
       localPkgs = [INITIAL_DEMO_PACKAGE];
       saveLocalPackages(localPkgs);
     }
 
-    // Mescla API e localStorage sem duplicar IDs ou combinações idênticas de apartamento/descrição
     const apiIds = new Set(apiData.map(p => p.id));
     const apiKeys = new Set(apiData.map(p => `${p.apartment_id}_${(p.description || '').trim().toLowerCase()}`));
 
@@ -173,7 +489,6 @@ export default function DeliveryAlert({
     fetchPackages();
   }, [fetchPackages]);
 
-  // Registra a retirada
   const handleDeliverPackage = async (packageId, packageDescription) => {
     try {
       await fetch(
@@ -184,7 +499,6 @@ export default function DeliveryAlert({
       console.warn('Aviso: baixa registrada localmente:', err);
     }
 
-    // Atualiza o estado local e remove do localStorage
     const currentLocals = getLocalPackages();
     const updatedLocals = currentLocals.filter(pkg => pkg.id !== packageId);
     saveLocalPackages(updatedLocals);
@@ -195,7 +509,6 @@ export default function DeliveryAlert({
     setAnnouncement(successMsg);
   };
 
-  // Cadastra nova encomenda
   const handleRegisterPackage = async (evt) => {
     evt.preventDefault();
     if (!description.trim()) {
@@ -219,7 +532,6 @@ export default function DeliveryAlert({
       received_at: new Date().toISOString()
     };
 
-    // Tenta gravar no backend FastAPI
     try {
       const payload = {
         apartment_id: effectiveApartmentId,
@@ -250,7 +562,6 @@ export default function DeliveryAlert({
       console.warn('Aviso: salvo no modo de persistência local:', err);
     }
 
-    // Salva o objeto retornado (com ID oficial do backend) no localStorage
     const currentLocals = getLocalPackages();
     const updatedLocals = [
       savedPkg, 
@@ -290,10 +601,9 @@ export default function DeliveryAlert({
       {/* CABEÇALHO */}
       <header style={{ borderBottom: `2px solid ${theme.border}`, paddingBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', margin: 0 }}>CondAccess - Painel de Encomendas</h1>
+          <h1 style={{ fontSize: '1.8rem', margin: 0 }}>CondAccess - Painel da Portaria</h1>
           <p style={{ margin: '4px 0 0 0', opacity: 0.8, fontSize: '0.95rem' }}>
             Condomínio Residencial Jardins do Tatuapé
-
           </p>
         </div>
 
@@ -348,130 +658,204 @@ export default function DeliveryAlert({
         </div>
       )}
 
+      {/* ABAS DE NAVEGAÇÃO NA PORTARIA */}
+      <nav aria-label="Navegação da Portaria" style={{ marginTop: '20px', borderBottom: `2px solid ${theme.border}` }}>
+        <div role="tablist" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'deliveries'}
+            aria-controls="tabpanel-deliveries"
+            id="tab-deliveries"
+            onClick={() => setActiveTab('deliveries')}
+            style={{
+              padding: '12px 20px',
+              fontSize: '1.05rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              border: 'none',
+              borderBottom: activeTab === 'deliveries' 
+                ? (highContrast ? '4px solid #ffff00' : '4px solid #2563eb')
+                : '4px solid transparent',
+              backgroundColor: activeTab === 'deliveries' ? theme.cardBg : 'transparent',
+              color: activeTab === 'deliveries' 
+                ? (highContrast ? '#ffff00' : '#2563eb') 
+                : theme.text,
+              borderRadius: '6px 6px 0 0',
+              minHeight: '48px'
+            }}
+          >
+            📦 Gestão de Encomendas
+          </button>
+
+          {isPortaria && (
+            <button
+              role="tab"
+              aria-selected={activeTab === 'visitors'}
+              aria-controls="tabpanel-visitors"
+              id="tab-visitors"
+              onClick={() => setActiveTab('visitors')}
+              style={{
+                padding: '12px 20px',
+                fontSize: '1.05rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                border: 'none',
+                borderBottom: activeTab === 'visitors' 
+                  ? (highContrast ? '4px solid #ffff00' : '4px solid #2563eb')
+                  : '4px solid transparent',
+                backgroundColor: activeTab === 'visitors' ? theme.cardBg : 'transparent',
+                color: activeTab === 'visitors' 
+                  ? (highContrast ? '#ffff00' : '#2563eb') 
+                  : theme.text,
+                borderRadius: '6px 6px 0 0',
+                minHeight: '48px'
+              }}
+            >
+              🚪 Portaria Social & Visitantes
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* CONTEÚDO DAS ABAS */}
       <main style={{ marginTop: '24px' }}>
         
-        {/* BOTÃO + RECEBER ENCOMENDA - VISÍVEL APENAS PARA PERFIL PORTARIA */}
-        {isPortaria && (
-          <div style={{ marginBottom: '24px' }}>
-            <button
-              onClick={() => setShowRegisterForm(!showRegisterForm)}
-              style={{ minHeight: '48px', padding: '12px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}
-            >
-              {showRegisterForm ? "Cancelar Cadastro" : "+ Receber Nova Encomenda (Portaria)"}
-            </button>
+        {/* ABA 1: GESTÃO DE ENCOMENDAS */}
+        {activeTab === 'deliveries' && (
+          <div id="tabpanel-deliveries" role="tabpanel" aria-labelledby="tab-deliveries">
+            
+            {/* BOTÃO + RECEBER ENCOMENDA */}
+            {isPortaria && (
+              <div style={{ marginBottom: '24px' }}>
+                <button
+                  onClick={() => setShowRegisterForm(!showRegisterForm)}
+                  style={{ minHeight: '48px', padding: '12px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}
+                >
+                  {showRegisterForm ? "Cancelar Cadastro" : "+ Receber Nova Encomenda (Portaria)"}
+                </button>
+              </div>
+            )}
+
+            {/* FORMULÁRIO DE CADASTRO DE ENCOMENDA */}
+            {isPortaria && showRegisterForm && (
+              <section style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '20px', marginBottom: '24px', maxWidth: '600px' }}>
+                <h2 style={{ marginTop: 0, fontSize: '1.3rem' }}>Registrar Recebimento na Portaria</h2>
+                <form onSubmit={handleRegisterPackage} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  
+                  <div>
+                    <label htmlFor="pkg-bloco" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Bloco / Edifício *</label>
+                    <select
+                      id="pkg-bloco"
+                      value={selectedBloco}
+                      onChange={(evt) => setSelectedBloco(evt.target.value)}
+                      required
+                      style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: theme.cardBg, color: theme.text }}
+                    >
+                      {BLOCOS_CONDOMINIO.map((bloco) => (
+                        <option key={bloco.id} value={bloco.id}>{bloco.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="pkg-apto" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Número do Apartamento *</label>
+                    <select
+                      id="pkg-apto"
+                      value={selectedApto}
+                      onChange={(evt) => setSelectedApto(evt.target.value)}
+                      required
+                      style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: theme.cardBg, color: theme.text }}
+                    >
+                      {aptosDisponiveis.map((item) => (
+                        <option key={item.numero} value={item.numero}>{item.rotulo}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="pkg-desc" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Descrição da Encomenda *</label>
+                    <input 
+                      id="pkg-desc" 
+                      type="text" 
+                      value={description} 
+                      onChange={(evt) => setDescription(evt.target.value)} 
+                      placeholder="Ex: Pacote Amazon, Caixa Sedex..." 
+                      required 
+                      style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: theme.cardBg, color: theme.text }} 
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="pkg-tracking" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Código de Rastreio (Opcional)</label>
+                    <input 
+                      id="pkg-tracking" 
+                      type="text" 
+                      value={trackingCode} 
+                      onChange={(evt) => setTrackingCode(evt.target.value)} 
+                      placeholder="Ex: BR123456789" 
+                      style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: theme.cardBg, color: theme.text }} 
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="pkg-notes" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Observações (Opcional)</label>
+                    <input 
+                      id="pkg-notes" 
+                      type="text" 
+                      value={notes} 
+                      onChange={(evt) => setNotes(evt.target.value)} 
+                      placeholder="Ex: Deixado na recepção social" 
+                      style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: theme.cardBg, color: theme.text }} 
+                    />
+                  </div>
+
+                  <button type="submit" disabled={isSubmitting} style={{ minHeight: '48px', padding: '10px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: 'none', borderRadius: '6px' }}>
+                    {isSubmitting ? "Enviando..." : "Confirmar Recebimento (POST /packages)"}
+                  </button>
+                </form>
+              </section>
+            )}
+
+            {/* LISTAGEM DE ENCOMENDAS PENDENTES */}
+            <section aria-label="Suas encomendas pendentes">
+              <h2 style={{ fontSize: '1.4rem', marginBottom: '16px' }}>Entregas Aguardando Retirada ({packages.length})</h2>
+              {loading ? (
+                <p style={{ fontSize: '1.1rem' }}>Carregando encomendas do servidor...</p>
+              ) : error ? (
+                <div style={{ padding: '16px', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>{error}</p>
+                  <button onClick={fetchPackages} style={{ marginTop: '10px', padding: '8px 12px', cursor: 'pointer' }}>Tentar Novamente</button>
+                </div>
+              ) : packages.length === 0 ? (
+                <p style={{ fontSize: '1.1rem' }}>{isPortaria ? "Nenhuma encomenda pendente na portaria." : "Nenhuma encomenda pendente para seu apartamento."}</p>
+              ) : (
+                <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {packages.map((pkg) => (
+                    <li key={pkg.id} style={{ padding: '20px', border: `2px solid ${theme.border}`, borderRadius: '8px', backgroundColor: theme.cardBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <strong style={{ fontSize: '1.2rem', color: theme.text }}>{pkg.description}</strong>
+                        {pkg.tracking_code && <span>Código de Rastreio: <code>{pkg.tracking_code}</code></span>}
+                        <small style={{ opacity: 0.8 }}>Recebido em: {new Date(pkg.received_at).toLocaleString('pt-BR')}</small>
+                        {pkg.notes && <small style={{ fontStyle: 'italic', fontWeight: '600' }}>Obs: {pkg.notes}</small>}
+                      </div>
+                      <button onClick={() => handleDeliverPackage(pkg.id, pkg.description)} style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}>
+                        Confirmar Retirada
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
         )}
 
-        {/* FORMULÁRIO DE CADASTRO (PORTARIA) */}
-        {isPortaria && showRegisterForm && (
-          <section style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '20px', marginBottom: '24px', maxWidth: '600px' }}>
-            <h2 style={{ marginTop: 0, fontSize: '1.3rem' }}>Registrar Recebimento na Portaria</h2>
-            <form onSubmit={handleRegisterPackage} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              
-              <div>
-                <label htmlFor="pkg-bloco" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Bloco / Edifício *</label>
-                <select
-                  id="pkg-bloco"
-                  value={selectedBloco}
-                  onChange={(evt) => setSelectedBloco(evt.target.value)}
-                  required
-                  style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                >
-                  {BLOCOS_CONDOMINIO.map((bloco) => (
-                    <option key={bloco.id} value={bloco.id}>{bloco.nome}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="pkg-apto" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Número do Apartamento *</label>
-                <select
-                  id="pkg-apto"
-                  value={selectedApto}
-                  onChange={(evt) => setSelectedApto(evt.target.value)}
-                  required
-                  style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                >
-                  {aptosDisponiveis.map((item) => (
-                    <option key={item.numero} value={item.numero}>{item.rotulo}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="pkg-desc" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Descrição da Encomenda *</label>
-                <input 
-                  id="pkg-desc" 
-                  type="text" 
-                  value={description} 
-                  onChange={(evt) => setDescription(evt.target.value)} 
-                  placeholder="Ex: Pacote Amazon, Caixa Sedex..." 
-                  required 
-                  style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }} 
-                />
-              </div>
-
-              <div>
-                <label htmlFor="pkg-tracking" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Código de Rastreio (Opcional)</label>
-                <input 
-                  id="pkg-tracking" 
-                  type="text" 
-                  value={trackingCode} 
-                  onChange={(evt) => setTrackingCode(evt.target.value)} 
-                  placeholder="Ex: BR123456789" 
-                  style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }} 
-                />
-              </div>
-
-              <div>
-                <label htmlFor="pkg-notes" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Observações (Opcional)</label>
-                <input 
-                  id="pkg-notes" 
-                  type="text" 
-                  value={notes} 
-                  onChange={(evt) => setNotes(evt.target.value)} 
-                  placeholder="Ex: Deixado na recepção social" 
-                  style={{ width: '100%', minHeight: '44px', padding: '8px 12px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }} 
-                />
-              </div>
-
-              <button type="submit" disabled={isSubmitting} style={{ minHeight: '48px', padding: '10px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: 'none', borderRadius: '6px' }}>
-                {isSubmitting ? "Enviando..." : "Confirmar Recebimento (POST /packages)"}
-              </button>
-            </form>
-          </section>
+        {/* ABA 2: CONTROLE DE VISITANTES E PRESTADORES */}
+        {activeTab === 'visitors' && (
+          <div id="tabpanel-visitors" role="tabpanel" aria-labelledby="tab-visitors">
+            <VisitorManagerSection isHighContrast={highContrast} />
+          </div>
         )}
 
-        {/* LISTAGEM DE ENCOMENDAS PENDENTES */}
-        <section aria-label="Suas encomendas pendentes">
-          <h2 style={{ fontSize: '1.4rem', marginBottom: '16px' }}>Entregas Aguardando Retirada ({packages.length})</h2>
-          {loading ? (
-            <p style={{ fontSize: '1.1rem' }}>Carregando encomendas do servidor...</p>
-          ) : error ? (
-            <div style={{ padding: '16px', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
-              <p style={{ margin: 0, fontWeight: 'bold' }}>{error}</p>
-              <button onClick={fetchPackages} style={{ marginTop: '10px', padding: '8px 12px', cursor: 'pointer' }}>Tentar Novamente</button>
-            </div>
-          ) : packages.length === 0 ? (
-            <p style={{ fontSize: '1.1rem' }}>{isPortaria ? "Nenhuma encomenda pendente na portaria." : "Nenhuma encomenda pendente para seu apartamento."}</p>
-          ) : (
-            <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {packages.map((pkg) => (
-                <li key={pkg.id} style={{ padding: '20px', border: `2px solid ${theme.border}`, borderRadius: '8px', backgroundColor: theme.cardBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <strong style={{ fontSize: '1.2rem', color: theme.text }}>{pkg.description}</strong>
-                    {pkg.tracking_code && <span>Código de Rastreio: <code>{pkg.tracking_code}</code></span>}
-                    <small style={{ opacity: 0.8 }}>Recebido em: {new Date(pkg.received_at).toLocaleString('pt-BR')}</small>
-                    {pkg.notes && <small style={{ fontStyle: 'italic', fontWeight: '600' }}>Obs: {pkg.notes}</small>}
-                  </div>
-                  <button onClick={() => handleDeliverPackage(pkg.id, pkg.description)} style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}>
-                    Confirmar Retirada
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
       </main>
     </div>
   );
