@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 /**
- * Login Component (v5 - Master Admin Bulletproof) - CondAccess
+ * Login Component (v6 - Clean Production Mode) - CondAccess
  * Componente React de Autenticação Acessível (WCAG 2.1 AA)
  * Suporta Conta Master Root, JWT Tokens, Perfis (Portaria / Morador / Admin Geral), Modo Alto Contraste e Leitores de Tela.
  * Condomínio Residencial Jardins do Tatuapé
@@ -449,53 +449,7 @@ export default function Login({ onLoginSuccess }) {
           </button>
         </form>
 
-        {/* Seção de Atalhos para Testes de Demonstração (Dev / Avaliação) */}
-        <section style={{
-          marginTop: '28px',
-          paddingTop: '20px',
-          borderTop: `1px solid ${theme.border}`,
-          textAlign: 'center'
-        }}>
-          <p style={{ margin: '0 0 10px 0', fontSize: '0.85rem', opacity: 0.85, fontWeight: 'bold' }}>
-            Atalhos para Teste e Avaliação Rápida (Dev Mode):
-          </p>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => handleQuickDemo('portaria')}
-              style={{
-                minHeight: '38px',
-                padding: '6px 12px',
-                fontSize: '0.85rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                backgroundColor: theme.btnSecondaryBg,
-                color: theme.btnSecondaryText,
-                border: `1px solid ${theme.border}`,
-                borderRadius: '4px'
-              }}
-            >
-              🛡️ Demo Portaria
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickDemo('morador')}
-              style={{
-                minHeight: '38px',
-                padding: '6px 12px',
-                fontSize: '0.85rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                backgroundColor: theme.btnSecondaryBg,
-                color: theme.btnSecondaryText,
-                border: `1px solid ${theme.border}`,
-                borderRadius: '4px'
-              }}
-            >
-              🏡 Demo Morador
-            </button>
-          </div>
-        </section>
+        
       </main>
 
       {/* Rodapé Informativo */}
