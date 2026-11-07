@@ -217,9 +217,9 @@ export default function Login({ onLoginSuccess }) {
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
       alignItems: 'center',
-      padding: '20px',
+      padding: '40px 20px 20px 20px',
       backgroundColor: theme.bg,
       color: theme.text,
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
@@ -320,7 +320,7 @@ export default function Login({ onLoginSuccess }) {
                   onChange={() => setSelectedRole('administrator')}
                   style={{ width: '18px', height: '18px' }}
                 />
-                👑 Administrador do Sistema (Síndico / TI)
+                👑 Administrador (Síndico / TI)
               </label>
 
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.95rem', minHeight: '32px' }}>
@@ -332,7 +332,7 @@ export default function Login({ onLoginSuccess }) {
                   onChange={() => setSelectedRole('portaria')}
                   style={{ width: '18px', height: '18px' }}
                 />
-                🛡️ Portaria / Operacional
+                🛡️ Portaria
               </label>
 
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.95rem', minHeight: '32px' }}>
