@@ -6,32 +6,52 @@ import React, { useState, useEffect } from 'react';
  * 
  * Integração com Backend FastAPI (/visitors, /visits) e Supabase (PostgreSQL)
  */
-export default function VisitorManager({ isHighContrast = false }) {
-  // Estado para armazenar a lista de visitas ativas
-  const [activeVisits, setActiveVisits] = useState([
-    {
-      id: 'v1',
-      visitor_name: 'Carlos Eduardo Mendes',
-      document_id: '345.678.901-22',
-      visitor_type: 'contractor', // contractor, visitor, delivery_person
-      company: 'Manutenção de Elevadores Otis',
-      block: 'Bloco 2 - Pereira',
-      apartment: '304',
-      entry_time: '14:30',
-      status: 'active'
-    },
-    {
-      id: 'v2',
-      visitor_name: 'Mariana Souza Santos',
-      document_id: '234.567.890-11',
-      visitor_type: 'visitor',
-      company: 'Particular',
-      block: 'Bloco 1 - Macieira',
-      apartment: '11',
-      entry_time: '15:15',
-      status: 'active'
+const INITIAL_DEMO_VISITS = [
+  {
+    id: 'v1',
+    visitor_name: 'Carlos Eduardo Mendes',
+    document_id: '345.678.901-22',
+    visitor_type: 'contractor',
+    company: 'Manutenção de Elevadores Otis',
+    block: 'Bloco 2 - Pereira',
+    apartment: '304',
+    entry_time: '14:30',
+    status: 'active'
+  },
+  {
+    id: 'v2',
+    visitor_name: 'Mariana Souza Santos',
+    document_id: '234.567.890-11',
+    visitor_type: 'visitor',
+    company: 'Particular',
+    block: 'Bloco 1 - Macieira',
+    apartment: '101',
+    entry_time: '15:15',
+    status: 'active'
+  }
+];
+
+const getLocalVisitors = () => {
+  try {
+    const raw = localStorage.getItem('condaccess_demo_visitors');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
     }
-  ]);
+  } catch (e) {}
+  return INITIAL_DEMO_VISITS;
+};
+
+const saveLocalVisitors = (visits) => {
+  try {
+    localStorage.setItem('condaccess_demo_visitors', JSON.stringify(visits));
+  } catch (e) {}
+};
+
+export default function VisitorManager({ isHighContrast = false }) {
+  // Estado para armazenar a lista de visitas ativas (com persistência no localStorage)
+  const [activeVisits, setActiveVisits] = useState(() => getLocalVisitors());
+
 
   // Estados do formulário
   const [name, setName] = useState('');
@@ -74,7 +94,9 @@ export default function VisitorManager({ isHighContrast = false }) {
       status: 'active'
     };
 
-    setActiveVisits([newVisit, ...activeVisits]);
+    const updatedVisits = [newVisit, ...activeVisits];
+    setActiveVisits(updatedVisits);
+    saveLocalVisitors(updatedVisits);
 
     // Mensagem de anúncio acessível WAI-ARIA
     const typeLabel = visitorType === 'contractor' ? 'Prestador de serviço' : visitorType === 'delivery_person' ? 'Entregador' : 'Visitante';
@@ -94,7 +116,9 @@ export default function VisitorManager({ isHighContrast = false }) {
 
   // Baixa / Registro de Saída
   const handleCheckout = (id, visitorName) => {
-    setActiveVisits(activeVisits.filter(visit => visit.id !== id));
+    const updatedVisits = activeVisits.filter(visit => visit.id !== id);
+    setActiveVisits(updatedVisits);
+    saveLocalVisitors(updatedVisits);
     const msg = `Saída de ${visitorName} registrada com sucesso.`;
     setAnnouncement(msg);
     setBannerMessage(msg);
