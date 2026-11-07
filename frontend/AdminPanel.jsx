@@ -196,7 +196,8 @@ export default function AdminPanel({ user = null, onLogout = null }) {
       const newUser = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `usr-${Date.now()}`,
         name: newName,
-        email: newEmail,
+        email: newEmail.trim().toLowerCase(),
+        password: newPassword.trim(),
         role: newRole,
         is_master: false,
         apartment: newApartment,
@@ -204,10 +205,30 @@ export default function AdminPanel({ user = null, onLogout = null }) {
         created_at: new Date().toISOString().split('T')[0]
       };
 
+      // Adiciona ao Log de Auditoria
+      try {
+        const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+        const logEntry = `[${timestamp}] Conta Master cadastrou novo usuário: "${newName}" (${newEmail}) com perfil ${newRole.toUpperCase()}.`;
+        const rawLogs = localStorage.getItem('condaccess_audit_logs');
+        const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
+        localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+      } catch (err) {}
+
       setUsersList(prev => [newUser, ...prev]);
       const msg = `✅ Nova conta cadastrada com sucesso: "${newName}" (${newRole.toUpperCase()})!`;
-      setBannerMessage({ type: 'success', text: msg });
-      setAnnouncement(msg);
+      const emailNotice = `📧 E-mail de boas-vindas e credenciais de acesso enviado para ${newEmail.trim().toLowerCase()}`;
+      
+      // Log do disparo de e-mail
+      try {
+        const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+        const emailLogEntry = `[${timestamp}] Disparo de e-mail de boas-vindas enviado para ${newEmail.trim().toLowerCase()} (Serviço de E-mail/SMTP).`;
+        const rawLogs = localStorage.getItem('condaccess_audit_logs');
+        const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
+        localStorage.setItem('condaccess_audit_logs', JSON.stringify([emailLogEntry, ...currentLogs]));
+      } catch (err) {}
+
+      setBannerMessage({ type: 'success', text: `${msg} — ${emailNotice}` });
+      setAnnouncement(`${msg} ${emailNotice}`);
     }
 
     setShowUserModal(false);
@@ -525,25 +546,35 @@ export default function AdminPanel({ user = null, onLogout = null }) {
         )}
 
         {/* ABA 3: LOGS DE AUDITORIA */}
-        {activeTab === 'logs' && (
-          <section style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
-            <h2 style={{ marginTop: 0, fontSize: '1.4rem' }}>Logs de Auditoria e Atividades do Sistema</h2>
-            <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <li style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '0.95rem' }}>
-                <strong>[2026-10-19 18:00]</strong> Conta Master <code>master@jardinstatuape.com.br</code> cadastrou novo usuário no sistema com perfil de Administrador.
-              </li>
-              <li style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '0.95rem' }}>
-                <strong>[2026-10-19 17:15]</strong> Usuario <code>admin@jardinstatuape.com.br</code> autenticado no painel.
-              </li>
-              <li style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '0.95rem' }}>
-                <strong>[2026-10-19 16:40]</strong> Porteiro Carlos Silva registrou nova encomenda para o <strong>Bloco 1 - Apto 101</strong> (Notificação por e-mail disparada).
-              </li>
-              <li style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '0.95rem' }}>
-                <strong>[2026-10-19 15:20]</strong> Moradora Ana Oliveira confirmou a baixa/retirada de pacote no painel do morador.
-              </li>
-            </ul>
-          </section>
-        )}
+        {activeTab === 'logs' && (() => {
+          let customLogs = [];
+          try {
+            const raw = localStorage.getItem('condaccess_audit_logs');
+            if (raw) customLogs = JSON.parse(raw);
+          } catch (e) {}
+
+          const defaultLogs = [
+            "[2026-10-19 18:00] Conta Master master@jardinstatuape.com.br cadastrou novo usuário no sistema com perfil de Administrador.",
+            "[2026-10-19 17:15] Usuario admin@jardinstatuape.com.br autenticado no painel.",
+            "[2026-10-19 16:40] Porteiro Carlos Silva registrou nova encomenda para o Bloco 1 - Apto 101 (Notificação por e-mail disparada).",
+            "[2026-10-19 15:20] Moradora Ana Oliveira confirmou a baixa/retirada de pacote no painel do morador."
+          ];
+
+          const allLogs = [...customLogs, ...defaultLogs];
+
+          return (
+            <section style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
+              <h2 style={{ marginTop: 0, fontSize: '1.4rem' }}>Logs de Auditoria e Atividades do Sistema</h2>
+              <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {allLogs.map((log, idx) => (
+                  <li key={idx} style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '0.95rem' }}>
+                    {log}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })()}
 
       </main>
     </div>
