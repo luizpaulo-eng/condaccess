@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v12) - CondAccess
+ * DeliveryAlert Component (v13) - CondAccess
  * Componente React Acessível (WCAG 2.1 AA / WAI-ARIA) de Gestão de Portaria.
  * 
  * Novas Funcionalidades:
@@ -67,31 +67,51 @@ const BLOCOS_CONDOMINIO = [
 /* ==========================================================================
    SUB-COMPONENTE: VISITOR MANAGER (MÓDULO DE VISITANTES E PRESTADORES)
    ========================================================================== */
-function VisitorManagerSection({ isHighContrast = false }) {
-  const [activeVisits, setActiveVisits] = useState([
-    {
-      id: 'v1',
-      visitor_name: 'Carlos Eduardo Mendes',
-      document_id: '345.678.901-22',
-      visitor_type: 'contractor',
-      company: 'Manutenção de Elevadores Otis',
-      block: 'Bloco 2 - Pereira',
-      apartment: '304',
-      entry_time: '14:30',
-      status: 'active'
-    },
-    {
-      id: 'v2',
-      visitor_name: 'Mariana Souza Santos',
-      document_id: '234.567.890-11',
-      visitor_type: 'visitor',
-      company: 'Particular',
-      block: 'Bloco 1 - Macieira',
-      apartment: '101',
-      entry_time: '15:15',
-      status: 'active'
+const INITIAL_DEMO_VISITS = [
+  {
+    id: 'v1',
+    visitor_name: 'Carlos Eduardo Mendes',
+    document_id: '345.678.901-22',
+    visitor_type: 'contractor',
+    company: 'Manutenção de Elevadores Otis',
+    block: 'Bloco 2 - Pereira',
+    apartment: '304',
+    entry_time: '14:30',
+    status: 'active'
+  },
+  {
+    id: 'v2',
+    visitor_name: 'Mariana Souza Santos',
+    document_id: '234.567.890-11',
+    visitor_type: 'visitor',
+    company: 'Particular',
+    block: 'Bloco 1 - Macieira',
+    apartment: '101',
+    entry_time: '15:15',
+    status: 'active'
+  }
+];
+
+const getLocalVisitors = () => {
+  try {
+    const raw = localStorage.getItem('condaccess_demo_visitors');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
     }
-  ]);
+  } catch (e) {}
+  return INITIAL_DEMO_VISITS;
+};
+
+const saveLocalVisitors = (visits) => {
+  try {
+    localStorage.setItem('condaccess_demo_visitors', JSON.stringify(visits));
+  } catch (e) {}
+};
+
+function VisitorManagerSection({ isHighContrast = false }) {
+  const [activeVisits, setActiveVisits] = useState(() => getLocalVisitors());
+
 
   const [name, setName] = useState('');
   const [documentId, setDocumentId] = useState('');
@@ -131,7 +151,9 @@ function VisitorManagerSection({ isHighContrast = false }) {
       status: 'active'
     };
 
-    setActiveVisits([newVisit, ...activeVisits]);
+    const updatedVisits = [newVisit, ...activeVisits];
+    setActiveVisits(updatedVisits);
+    saveLocalVisitors(updatedVisits);
 
     const typeLabel = visitorType === 'contractor' ? 'Prestador de serviço' : visitorType === 'delivery_person' ? 'Entregador' : 'Visitante';
     const msg = `✅ Entrada de ${typeLabel} "${name}" registrada para o ${selectedBlock}, Apartamento ${selectedApartment}.`;
@@ -148,7 +170,9 @@ function VisitorManagerSection({ isHighContrast = false }) {
   };
 
   const handleCheckout = (id, visitorName) => {
-    setActiveVisits(activeVisits.filter(visit => visit.id !== id));
+    const updatedVisits = activeVisits.filter(visit => visit.id !== id);
+    setActiveVisits(updatedVisits);
+    saveLocalVisitors(updatedVisits);
     const msg = `✅ Saída de ${visitorName} registrada com sucesso.`;
     setAnnouncement(msg);
     setBannerMessage(msg);
