@@ -149,7 +149,7 @@ condaccess/
 
 ---
 
-## ⚙️ Guia de Inicialização - Equipe CondAccess
+## ⚙️ Guia de Inicialização
 <details>
   
 #### ⚠️ Nota de Contribuição e Proteção de Código (README.md)
