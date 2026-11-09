@@ -1,33 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-/**
- * AdminPanel Component (v2 - Super Admin Master Protection) - CondAccess
- * Painel Administrativo de Gestão e Governança Total do Condomínio.
- * 
- * Funcionalidades do Administrador Master:
- * 1. Conta Root / Master inviolável (master@jardinstatuape.com.br), protegida contra exclusão e desativação.
- * 2. Permissão total para cadastrar todas as demais contas (Administradores, Portaria, Zeladoria e Moradores).
- * 3. Gestão e alteração de permissões/perfis em tempo real.
- * 4. Mapeamento de 5 Blocos e 340 unidades com estatísticas de ocupação.
- * 5. Logs de auditoria para rastreabilidade do sistema.
- */
-
-const getApiBaseUrl = () => {
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
-      return import.meta.env.VITE_API_URL;
-    }
-  } catch (e) {}
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) {
-      return process.env.REACT_APP_API_URL;
-    }
-  } catch (e) {}
-  return 'http://localhost:8000';
-};
-
-const API_BASE_URL = getApiBaseUrl();
-
+// Auxiliar para obter timestamp formatado no padrão brasileiro (fuso Horário de Brasília UTC-3)
 const getBrtTimestamp = () => {
   try {
     const now = new Date();
@@ -40,13 +13,54 @@ const getBrtTimestamp = () => {
   }
 };
 
+// Gera a lista estruturada das 340 unidades habitacionais (5 Blocos x 17 andares x 4 aptos por andar)
+const generateApartmentsList = () => {
+  const list = [];
+  for (let andar = 1; andar <= 17; andar++) {
+    for (let final = 1; final <= 4; final++) {
+      const num = andar * 10 + final;
+      list.push({ numero: String(num), rotulo: `Apto ${num} (${andar}º Andar)` });
+    }
+  }
+  return list;
+};
 
-// Conta Master do Sistema + Usuários Padrão para Demonstração
+// Auxiliar para extrair Bloco, Apto e Setor a partir de uma string de unidade salva
+const parseApartmentString = (aptStr) => {
+  if (!aptStr) return { block: 'Bloco 1 - Macieira', apto: '101', setor: 'Portaria Social' };
+  
+  if (aptStr.includes('Bloco 1')) {
+    const match = aptStr.match(/Apto\s*(\d+)/i);
+    return { block: 'Bloco 1 - Macieira', apto: match ? match[1] : '101', setor: 'Portaria Social' };
+  }
+  if (aptStr.includes('Bloco 2')) {
+    const match = aptStr.match(/Apto\s*(\d+)/i);
+    return { block: 'Bloco 2 - Pereira', apto: match ? match[1] : '202', setor: 'Portaria Social' };
+  }
+  if (aptStr.includes('Bloco 3')) {
+    const match = aptStr.match(/Apto\s*(\d+)/i);
+    return { block: 'Bloco 3 - Nogueira', apto: match ? match[1] : '101', setor: 'Portaria Social' };
+  }
+  if (aptStr.includes('Bloco 4')) {
+    const match = aptStr.match(/Apto\s*(\d+)/i);
+    return { block: 'Bloco 4 - Amoreira', apto: match ? match[1] : '101', setor: 'Portaria Social' };
+  }
+  if (aptStr.includes('Bloco 5')) {
+    const match = aptStr.match(/Apto\s*(\d+)/i);
+    return { block: 'Bloco 5 - Cerejeira', apto: match ? match[1] : '101', setor: 'Portaria Social' };
+  }
+
+  // Setores operacionais ou administrativos
+  return { block: 'Setor Operacional', apto: '101', setor: aptStr };
+};
+
+// Conta Master do Sistema + Usuários Padrão para Demonstração com senhas padrão
 const INITIAL_ADMIN_USERS = [
   { 
     id: '00000000-0000-4000-a000-000000000000', 
     name: 'Administrador Master (Root System)', 
     email: 'master@jardinstatuape.com.br', 
+    password: 'senha123master',
     role: 'administrator', 
     is_master: true, 
     apartment: 'Gestão Central / TI', 
@@ -57,6 +71,7 @@ const INITIAL_ADMIN_USERS = [
     id: '00000000-0000-4000-a000-000000000001', 
     name: 'Sílvia Ramos (Síndica Geral)', 
     email: 'admin@jardinstatuape.com.br', 
+    password: 'senha123admin',
     role: 'administrator', 
     is_master: false, 
     apartment: 'Administração', 
@@ -67,6 +82,7 @@ const INITIAL_ADMIN_USERS = [
     id: '98765432-e89b-12d3-a456-426614174000', 
     name: 'Carlos Silva (Porteiro Social)', 
     email: 'porteiro@jardinstatuape.com.br', 
+    password: 'senha123porteiro',
     role: 'doorman', 
     is_master: false, 
     apartment: 'Portaria Social', 
@@ -77,6 +93,7 @@ const INITIAL_ADMIN_USERS = [
     id: '88765432-e89b-12d3-a456-426614174111', 
     name: 'Francisco Santos (Zelador)', 
     email: 'zelador@jardinstatuape.com.br', 
+    password: 'senha123',
     role: 'janitor', 
     is_master: false, 
     apartment: 'Zeladoria Central', 
@@ -87,9 +104,10 @@ const INITIAL_ADMIN_USERS = [
     id: '11223344-e89b-12d3-a456-426614174000', 
     name: 'Ana Oliveira', 
     email: 'morador101@jardinstatuape.com.br', 
+    password: 'senha123morador',
     role: 'resident', 
     is_master: false, 
-    apartment: 'Bloco 1 - Apto 101', 
+    apartment: 'Bloco 1 - Macieira - Apto 101', 
     status: 'Ativo', 
     created_at: '2026-03-20' 
   },
@@ -97,9 +115,10 @@ const INITIAL_ADMIN_USERS = [
     id: '22334455-e89b-12d3-a456-426614174000', 
     name: 'Roberto Almeida', 
     email: 'morador202@jardinstatuape.com.br', 
+    password: 'senha123',
     role: 'resident', 
     is_master: false, 
-    apartment: 'Bloco 2 - Apto 202', 
+    apartment: 'Bloco 2 - Pereira - Apto 202', 
     status: 'Ativo', 
     created_at: '2026-04-05' 
   }
@@ -110,7 +129,6 @@ const getStoredUsersList = () => {
     const raw = localStorage.getItem('condaccess_users_db');
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Garante que a Conta Master inviolável sempre esteja no topo da lista
       const hasMaster = parsed.some(u => u.is_master || u.id === '00000000-0000-4000-a000-000000000000');
       if (!hasMaster) {
         return [INITIAL_ADMIN_USERS[0], ...parsed];
@@ -134,14 +152,19 @@ export default function AdminPanel({ user = null, onLogout = null }) {
   const [announcement, setAnnouncement] = useState('');
   const [bannerMessage, setBannerMessage] = useState(null);
 
-  // Estados para o formulário modal (Novo usuário ou alteração de permissão)
+  // Estados para o formulário modal (Novo usuário ou alteração de permissão e senha)
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [newRole, setNewRole] = useState('resident');
-  const [newApartment, setNewApartment] = useState('Bloco 1 - Apto 101');
+
+  // Estados para caixas seletoras de Bloco, Apartamento e Setor Operacional
+  const [selectedBlock, setSelectedBlock] = useState('Bloco 1 - Macieira');
+  const [selectedApto, setSelectedApto] = useState('101');
+  const [selectedSetor, setSelectedSetor] = useState('Portaria Social');
 
   // Atualiza localStorage sempre que usersList mudar
   useEffect(() => {
@@ -153,47 +176,73 @@ export default function AdminPanel({ user = null, onLogout = null }) {
     setEditingUserId(null);
     setNewName('');
     setNewEmail('');
-    setNewPassword('');
+    setNewPassword('senha123');
+    setShowPassword(true);
     setNewRole('resident');
-    setNewApartment('Bloco 1 - Apto 101');
+    setSelectedBlock('Bloco 1 - Macieira');
+    setSelectedApto('101');
+    setSelectedSetor('Portaria Social');
     setShowUserModal(true);
   };
 
-  // Abre formulário para editar permissões de um usuário existente
+  // Abre formulário para editar permissões, senha e setor de um usuário existente
   const handleOpenEditUser = (u) => {
     setEditingUserId(u.id);
     setNewName(u.name);
     setNewEmail(u.email);
-    setNewPassword('');
+    setNewPassword(u.password || 'senha123');
+    setShowPassword(false);
     setNewRole(u.role);
-    setNewApartment(u.apartment || 'Administração');
+
+    const parsed = parseApartmentString(u.apartment);
+    setSelectedBlock(parsed.block);
+    setSelectedApto(parsed.apto);
+    setSelectedSetor(parsed.setor);
+
     setShowUserModal(true);
   };
 
-  // Processa o salvamento do usuário
+  // Processa o salvamento do usuário (Novo ou Edição)
   const handleSaveUser = (e) => {
     e.preventDefault();
-    if (!newName.trim() || !newEmail.trim()) {
-      alert('Por favor, preencha o Nome e o E-mail do usuário.');
+    if (!newName.trim() || !newEmail.trim() || !newPassword.trim()) {
+      alert('Por favor, preencha o Nome, o E-mail e a Senha de Acesso do usuário.');
       return;
     }
 
+    const finalApartment = selectedBlock === 'Setor Operacional' 
+      ? selectedSetor 
+      : `${selectedBlock} - Apto ${selectedApto}`;
+
     if (editingUserId) {
-      // Edição de Permissões
+      // Edição de Permissões e Senha
+      let isPasswordChanged = false;
+
       setUsersList(prev => {
         const updated = prev.map(u => {
           if (u.id === editingUserId) {
+            if (u.password !== newPassword.trim()) {
+              isPasswordChanged = true;
+            }
+
             // Proteção: A Conta Master não pode perder o papel de administrator
             if (u.is_master && newRole !== 'administrator') {
               alert('🔒 A Conta Master do Sistema deve manter o perfil de Administrador.');
-              return { ...u, name: newName, email: newEmail, apartment: newApartment };
+              return { 
+                ...u, 
+                name: newName, 
+                email: newEmail.trim().toLowerCase(), 
+                password: newPassword.trim(),
+                apartment: finalApartment 
+              };
             }
             return {
               ...u,
               name: newName,
-              email: newEmail,
+              email: newEmail.trim().toLowerCase(),
+              password: newPassword.trim(),
               role: newRole,
-              apartment: newApartment
+              apartment: finalApartment
             };
           }
           return u;
@@ -201,7 +250,20 @@ export default function AdminPanel({ user = null, onLogout = null }) {
         return updated;
       });
 
-      const msg = `✅ Permissões de "${newName}" atualizadas com sucesso para ${newRole.toUpperCase()}!`;
+      // Log de Auditoria
+      try {
+        const timestamp = getBrtTimestamp();
+        let logText = `[${timestamp}] Conta Master atualizou dados/permissões do usuário "${newName}" (${newEmail}) [Perfil: ${newRole.toUpperCase()}, Unidade: ${finalApartment}].`;
+        if (isPasswordChanged) {
+          logText += ` (Senha de acesso alterada/redefinida).`;
+        }
+        const rawLogs = localStorage.getItem('condaccess_audit_logs');
+        const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
+        localStorage.setItem('condaccess_audit_logs', JSON.stringify([logText, ...currentLogs]));
+      } catch (err) {}
+
+      const pwdNote = isPasswordChanged ? " 🔑 (Senha alterada com sucesso)" : "";
+      const msg = `✅ Usuário "${newName}" atualizado! Perfil: ${newRole.toUpperCase()} | Unidade: ${finalApartment}${pwdNote}.`;
       setBannerMessage({ type: 'success', text: msg });
       setAnnouncement(msg);
     } else {
@@ -213,7 +275,7 @@ export default function AdminPanel({ user = null, onLogout = null }) {
         password: newPassword.trim(),
         role: newRole,
         is_master: false,
-        apartment: newApartment,
+        apartment: finalApartment,
         status: 'Ativo',
         created_at: new Date().toISOString().split('T')[0]
       };
@@ -221,15 +283,15 @@ export default function AdminPanel({ user = null, onLogout = null }) {
       // Adiciona ao Log de Auditoria
       try {
         const timestamp = getBrtTimestamp();
-        const logEntry = `[${timestamp}] Conta Master cadastrou novo usuário: "${newName}" (${newEmail}) com perfil ${newRole.toUpperCase()}.`;
+        const logEntry = `[${timestamp}] Conta Master cadastrou novo usuário: "${newName}" (${newEmail}) com perfil ${newRole.toUpperCase()} em "${finalApartment}".`;
         const rawLogs = localStorage.getItem('condaccess_audit_logs');
         const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
         localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
       } catch (err) {}
 
       setUsersList(prev => [newUser, ...prev]);
-      const msg = `✅ Nova conta cadastrada com sucesso: "${newName}" (${newRole.toUpperCase()})!`;
-      const emailNotice = `📧 E-mail de boas-vindas e credenciais de acesso enviado para ${newEmail.trim().toLowerCase()}`;
+      const msg = `✅ Nova conta cadastrada com sucesso: "${newName}" (${newRole.toUpperCase()}) em "${finalApartment}"!`;
+      const emailNotice = `📧 E-mail de boas-vindas e credenciais enviadas para ${newEmail.trim().toLowerCase()}`;
       
       // Log do disparo de e-mail
       try {
@@ -258,9 +320,19 @@ export default function AdminPanel({ user = null, onLogout = null }) {
       return;
     }
 
-    const nextStatus = currentStatus === 'Ativo' ? 'Inativo' : 'Ativo';
-    setUsersList(prev => prev.map(u => u.id === userId ? { ...u, status: nextStatus } : u));
-    const msg = `Status do usuário "${currentName}" alterado para ${nextStatus}.`;
+    const newStatus = currentStatus === 'Ativo' ? 'Inativo' : 'Ativo';
+    setUsersList(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+    
+    // Log de auditoria
+    try {
+      const timestamp = getBrtTimestamp();
+      const logEntry = `[${timestamp}] Conta Master alterou status do usuário "${currentName}" para ${newStatus.toUpperCase()}.`;
+      const rawLogs = localStorage.getItem('condaccess_audit_logs');
+      const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
+      localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+    } catch (err) {}
+
+    const msg = `Status do usuário "${currentName}" alterado para ${newStatus.toUpperCase()}.`;
     setBannerMessage({ type: 'info', text: msg });
     setAnnouncement(msg);
   };
@@ -269,65 +341,114 @@ export default function AdminPanel({ user = null, onLogout = null }) {
   const handleDeleteUser = (userId, currentName) => {
     const target = usersList.find(u => u.id === userId);
     if (target && (target.is_master || target.id === '00000000-0000-4000-a000-000000000000' || target.email === 'master@jardinstatuape.com.br')) {
-      const lockMsg = '🔒 AÇÃO BLOQUEADA: A Conta Master de Administrador é a raiz do sistema e não pode ser excluída!';
+      const lockMsg = '🔒 AÇÃO BLOQUEADA: A Conta Master de Administrador é inviolável e protegida contra exclusão!';
       alert(lockMsg);
       setBannerMessage({ type: 'error', text: lockMsg });
       setAnnouncement(lockMsg);
       return;
     }
 
-    if (window.confirm(`Tem certeza que deseja excluir permanentemente a conta de "${currentName}"?`)) {
-      setUsersList(prev => prev.filter(u => u.id !== userId));
-      const msg = `Conta de "${currentName}" removida do sistema com sucesso.`;
-      setBannerMessage({ type: 'info', text: msg });
-      setAnnouncement(msg);
+    if (!window.confirm(`Tem certeza que deseja excluir permanentemente o usuário "${currentName}"?`)) {
+      return;
     }
+
+    setUsersList(prev => prev.filter(u => u.id !== userId));
+
+    // Log de auditoria
+    try {
+      const timestamp = getBrtTimestamp();
+      const logEntry = `[${timestamp}] Conta Master excluiu o usuário "${currentName}" do sistema.`;
+      const rawLogs = localStorage.getItem('condaccess_audit_logs');
+      const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
+      localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+    } catch (err) {}
+
+    const msg = `Usuário "${currentName}" excluído com sucesso do sistema.`;
+    setBannerMessage({ type: 'error', text: msg });
+    setAnnouncement(msg);
   };
 
-  const theme = {
-    bg: highContrast ? '#000000' : '#f8fafc',
-    text: highContrast ? '#ffffff' : '#0f172a',
-    cardBg: highContrast ? '#111111' : '#ffffff',
-    border: highContrast ? '#ffff00' : '#e2e8f0',
-    btnPrimaryBg: highContrast ? '#ffff00' : '#2563eb',
-    btnPrimaryText: highContrast ? '#000000' : '#ffffff',
-    btnSuccessBg: highContrast ? '#00ff00' : '#16a34a',
-    btnSuccessText: highContrast ? '#000000' : '#ffffff',
-    btnDangerBg: highContrast ? '#ff0000' : '#dc2626',
-    btnDangerText: '#ffffff'
+  // Temas de Alto Contraste vs Padrão
+  const theme = highContrast ? {
+    bg: '#000000',
+    text: '#ffffff',
+    cardBg: '#121212',
+    border: '#ffff00',
+    navBg: '#1a1a1a',
+    btnPrimaryBg: '#ffff00',
+    btnPrimaryText: '#000000',
+    btnDangerBg: '#ff4d4d',
+    btnDangerText: '#ffffff',
+    tableHeaderBg: '#333333',
+    badgeActiveBg: '#00ff00',
+    badgeActiveText: '#000000',
+  } : {
+    bg: '#f8fafc',
+    text: '#1e293b',
+    cardBg: '#ffffff',
+    border: '#cbd5e1',
+    navBg: '#0f172a',
+    btnPrimaryBg: '#2563eb',
+    btnPrimaryText: '#ffffff',
+    btnDangerBg: '#ef4444',
+    btnDangerText: '#ffffff',
+    tableHeaderBg: '#f1f5f9',
+    badgeActiveBg: '#dcfce7',
+    badgeActiveText: '#166534',
   };
 
   return (
-    <div style={{ padding: '24px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+    <div style={{ backgroundColor: theme.bg, color: theme.text, minHeight: '100vh', padding: '24px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
       {/* LEITORES DE TELA (ARIA-LIVE) */}
-      <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(1px, 1px, 1px, 1px)' }}>
+      <div className="sr-only" aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', border: 0 }}>
         {announcement}
       </div>
 
       {/* CABEÇALHO PRINCIPAL DO PAINEL ADMINISTRATIVO */}
-      <header style={{ borderBottom: `2px solid ${theme.border}`, paddingBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: `2px solid ${theme.border}` }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', margin: 0 }}>CondAccess - Painel de Controle Master do Administrador</h1>
+          <h1 style={{ margin: 0, fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            👑 Painel de Controle Administrador Master
+          </h1>
           <p style={{ margin: '4px 0 0 0', opacity: 0.85, fontSize: '0.95rem' }}>
-            Condomínio Residencial Jardins do Tatuapé | <strong>Conta Ativa: {user?.nome || 'Administrador Master (Root System)'}</strong>
+            Condomínio Residencial Jardins do Tatuapé — Gestão de Usuários, Permissões, Unidades e Logs de Auditoria.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* BOTÃO ALTO CONTRASTE */}
           <button 
             onClick={() => setHighContrast(!highContrast)}
-            style={{ minHeight: '48px', padding: '10px 18px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: `2px solid ${theme.border}`, borderRadius: '6px' }}
+            style={{ 
+              padding: '8px 16px', 
+              minHeight: '44px',
+              backgroundColor: highContrast ? '#ffff00' : '#e2e8f0', 
+              color: highContrast ? '#000000' : '#0f172a',
+              border: `2px solid ${theme.border}`,
+              borderRadius: '6px',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
           >
-            {highContrast ? "Contraste Padrão" : "Alto Contraste"}
+            {highContrast ? '☀️ Modo Normal' : '👁️ Alto Contraste'}
           </button>
-          
+
           {onLogout && (
             <button 
               onClick={onLogout}
-              style={{ minHeight: '48px', padding: '10px 18px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '6px' }}
+              style={{ 
+                padding: '8px 16px', 
+                minHeight: '44px',
+                backgroundColor: theme.btnDangerBg, 
+                color: theme.btnDangerText,
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
             >
-              Sair da Conta
+              🚪 Sair do Sistema
             </button>
           )}
         </div>
@@ -335,119 +456,139 @@ export default function AdminPanel({ user = null, onLogout = null }) {
 
       {/* BANNER VISÍVEL DE MENSAGENS */}
       {bannerMessage && (
-        <div style={{ marginTop: '16px', padding: '14px 20px', backgroundColor: bannerMessage.type === 'error' ? (highContrast ? '#450a0a' : '#fef2f2') : (highContrast ? '#003300' : '#dcfce7'), color: bannerMessage.type === 'error' ? (highContrast ? '#ff9999' : '#991b1b') : (highContrast ? '#00ff00' : '#14532d'), border: `2px solid ${bannerMessage.type === 'error' ? '#ef4444' : (highContrast ? '#00ff00' : '#86efac')}`, borderRadius: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>{bannerMessage.text}</span>
-          <button onClick={() => setBannerMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'inherit' }}>✕</button>
+        <div style={{ 
+          padding: '12px 16px', 
+          borderRadius: '6px', 
+          marginBottom: '20px', 
+          fontWeight: 'bold',
+          backgroundColor: bannerMessage.type === 'error' ? '#fee2e2' : bannerMessage.type === 'info' ? '#e0f2fe' : '#dcfce7',
+          color: bannerMessage.type === 'error' ? '#991b1b' : bannerMessage.type === 'info' ? '#075985' : '#166534',
+          border: `1px solid ${bannerMessage.type === 'error' ? '#f87171' : bannerMessage.type === 'info' ? '#38bdf8' : '#4ade80'}`
+        }}>
+          {bannerMessage.text}
         </div>
       )}
 
       {/* ABAS NAVEGÁVEIS */}
-      <nav style={{ marginTop: '24px', display: 'flex', gap: '12px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '12px', flexWrap: 'wrap' }}>
+      <nav style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
         <button 
           onClick={() => setActiveTab('users')}
-          style={{ minHeight: '44px', padding: '10px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'users' ? theme.btnPrimaryBg : theme.cardBg, color: activeTab === 'users' ? theme.btnPrimaryText : theme.text, border: `1px solid ${theme.border}`, borderRadius: '6px' }}
+          style={{ padding: '12px 20px', minHeight: '44px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'users' ? theme.btnPrimaryBg : theme.cardBg, color: activeTab === 'users' ? theme.btnPrimaryText : theme.text, border: `1px solid ${theme.border}`, borderRadius: '6px' }}
         >
-          👥 Gestão de Usuários e Permissões ({usersList.length})
+          👥 Gestão de Usuários & Senhas
         </button>
+
         <button 
           onClick={() => setActiveTab('units')}
-          style={{ minHeight: '44px', padding: '10px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'units' ? theme.btnPrimaryBg : theme.cardBg, color: activeTab === 'units' ? theme.btnPrimaryText : theme.text, border: `1px solid ${theme.border}`, borderRadius: '6px' }}
+          style={{ padding: '12px 20px', minHeight: '44px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'units' ? theme.btnPrimaryBg : theme.cardBg, color: activeTab === 'units' ? theme.btnPrimaryText : theme.text, border: `1px solid ${theme.border}`, borderRadius: '6px' }}
         >
           🏢 Blocos e Unidades (5 Blocos / 340 Aptos)
         </button>
+
         <button 
           onClick={() => setActiveTab('logs')}
-          style={{ minHeight: '44px', padding: '10px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'logs' ? theme.btnPrimaryBg : theme.cardBg, color: activeTab === 'logs' ? theme.btnPrimaryText : theme.text, border: `1px solid ${theme.border}`, borderRadius: '6px' }}
+          style={{ padding: '12px 20px', minHeight: '44px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'logs' ? theme.btnPrimaryBg : theme.cardBg, color: activeTab === 'logs' ? theme.btnPrimaryText : theme.text, border: `1px solid ${theme.border}`, borderRadius: '6px' }}
         >
           📊 Logs de Auditoria do Sistema
         </button>
       </nav>
 
       {/* CONTEÚDO PRINCIPAL */}
-      <main style={{ marginTop: '24px' }}>
-        
+      <main>
         {/* ABA 1: GESTÃO DE USUÁRIOS */}
         {activeTab === 'users' && (
-          <section>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+          <section style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
                 <h2 style={{ fontSize: '1.4rem', margin: 0 }}>Gerenciamento do Cadastro Geral de Usuários</h2>
-                <small style={{ opacity: '0.8' }}>A partir desta conta Master, é possível criar, editar permissões ou remover qualquer outra conta do condomínio.</small>
+                <p style={{ margin: '4px 0 0 0', opacity: 0.8, fontSize: '0.9rem' }}>
+                  Cadastre novos usuários/funcionários, resgate ou altere senhas de acesso e atribua perfis (Síndico, Portaria, Zeladoria, Morador).
+                </p>
               </div>
+
               <button 
                 onClick={handleOpenAddUser}
-                style={{ minHeight: '48px', padding: '12px 20px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}
+                style={{ padding: '10px 18px', minHeight: '44px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: 'none', borderRadius: '6px', fontSize: '0.95rem' }}
               >
                 + Cadastrar Novo Usuário / Funcionário
               </button>
             </div>
 
             {/* TABELA DE USUÁRIOS */}
-            <div style={{ overflowX: 'auto', backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '16px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
-                    <th style={{ padding: '12px' }}>Nome</th>
-                    <th style={{ padding: '12px' }}>E-mail de Acesso</th>
-                    <th style={{ padding: '12px' }}>Perfil / Nível</th>
+                  <tr style={{ backgroundColor: theme.tableHeaderBg, borderBottom: `2px solid ${theme.border}` }}>
+                    <th style={{ padding: '12px' }}>Nome Completo</th>
+                    <th style={{ padding: '12px' }}>E-mail (Login)</th>
+                    <th style={{ padding: '12px' }}>Perfil de Acesso</th>
                     <th style={{ padding: '12px' }}>Unidade / Setor</th>
                     <th style={{ padding: '12px' }}>Status</th>
-                    <th style={{ padding: '12px', textAlign: 'center' }}>Ações de Controle</th>
+                    <th style={{ padding: '12px', textAlign: 'center' }}>Ações (Permissões & Senha)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {usersList.map((u) => {
                     const isMasterAcc = u.is_master || u.id === '00000000-0000-4000-a000-000000000000' || u.email === 'master@jardinstatuape.com.br';
-
                     return (
-                      <tr key={u.id} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: isMasterAcc ? (highContrast ? '#112200' : '#f0fdf4') : 'transparent' }}>
+                      <tr key={u.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
                         <td style={{ padding: '12px', fontWeight: 'bold' }}>
-                          {u.name}
-                          {isMasterAcc && (
-                            <span style={{ display: 'block', fontSize: '0.75rem', color: '#16a34a', fontWeight: 'bold' }}>
-                              🔒 CONTA MASTER INVIOLÁVEL
-                            </span>
-                          )}
+                          {u.name} {isMasterAcc && <span style={{ color: '#eab308', marginLeft: '4px' }}>⭐ (Master Root)</span>}
                         </td>
-                        <td style={{ padding: '12px' }}><code>{u.email}</code></td>
+                        <td style={{ padding: '12px' }}>{u.email}</td>
                         <td style={{ padding: '12px' }}>
-                          <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', backgroundColor: isMasterAcc ? '#fef08a' : u.role === 'administrator' ? '#fde047' : u.role === 'doorman' ? '#bfdbfe' : u.role === 'janitor' ? '#fed7aa' : '#e2e8f0', color: '#000000' }}>
-                            {isMasterAcc ? '👑 Super Admin Master' : u.role === 'administrator' ? '👑 Administrador' : u.role === 'doorman' ? '🛡️ Portaria' : u.role === 'janitor' ? '🔧 Zeladoria' : '🏡 Morador'}
+                          <span style={{ 
+                            padding: '4px 8px', 
+                            borderRadius: '4px', 
+                            fontWeight: 'bold',
+                            fontSize: '0.85rem',
+                            backgroundColor: u.role === 'administrator' ? '#fef3c7' : u.role === 'doorman' ? '#e0e7ff' : u.role === 'janitor' ? '#ffedd5' : '#f1f5f9',
+                            color: u.role === 'administrator' ? '#92400e' : u.role === 'doorman' ? '#3730a3' : u.role === 'janitor' ? '#9a3412' : '#334155',
+                            border: '1px solid rgba(0,0,0,0.1)'
+                          }}>
+                            {u.role === 'administrator' ? '👑 Administrador' : u.role === 'doorman' ? '🛡️ Portaria' : u.role === 'janitor' ? '🔧 Zeladoria' : '🏡 Morador'}
                           </span>
                         </td>
-                        <td style={{ padding: '12px' }}>{u.apartment}</td>
+                        <td style={{ padding: '12px', fontWeight: 'bold' }}>{u.apartment}</td>
                         <td style={{ padding: '12px' }}>
-                          <span style={{ fontWeight: 'bold', color: u.status.includes('Inviolável') || u.status === 'Ativo' ? '#16a34a' : '#dc2626' }}>
-                            ● {u.status}
+                          <span style={{ 
+                            padding: '4px 8px', 
+                            borderRadius: '4px', 
+                            fontWeight: 'bold', 
+                            fontSize: '0.85rem',
+                            backgroundColor: u.status === 'Ativo' || u.status.includes('Ativo') ? theme.badgeActiveBg : '#fee2e2',
+                            color: u.status === 'Ativo' || u.status.includes('Ativo') ? theme.badgeActiveText : '#991b1b'
+                          }}>
+                            {u.status}
                           </span>
                         </td>
-                        <td style={{ padding: '12px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <td style={{ padding: '12px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                          {/* BOTÃO EDITAR PERMISSÕES E SENHA */}
                           <button 
                             onClick={() => handleOpenEditUser(u)}
-                            style={{ padding: '6px 12px', minHeight: '36px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '4px' }}
+                            style={{ padding: '6px 12px', minHeight: '36px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: 'none', borderRadius: '4px' }}
                           >
-                            ✏️ Editar Permissão
+                            ✏️ Editar Perfil & Senha
                           </button>
-                          
+
                           {/* BOTÃO DE STATUS (DESATIVADO PARA CONTA MASTER) */}
                           <button 
                             onClick={() => handleToggleStatus(u.id, u.name, u.status)}
                             disabled={isMasterAcc}
-                            title={isMasterAcc ? "A Conta Master não pode ser desativada" : "Alternar status da conta"}
                             style={{ 
-                              padding: '6px 12px', 
+                              padding: '6px 10px', 
                               minHeight: '36px', 
                               fontSize: '0.85rem', 
                               fontWeight: 'bold', 
                               cursor: isMasterAcc ? 'not-allowed' : 'pointer', 
-                              backgroundColor: isMasterAcc ? '#e2e8f0' : u.status === 'Ativo' ? '#fee2e2' : '#dcfce7', 
-                              color: isMasterAcc ? '#94a3b8' : u.status === 'Ativo' ? '#991b1b' : '#14532d', 
-                              border: 'none', 
-                              borderRadius: '4px',
-                              opacity: isMasterAcc ? 0.6 : 1
+                              opacity: isMasterAcc ? 0.5 : 1,
+                              backgroundColor: theme.cardBg, 
+                              color: theme.text, 
+                              border: `1px solid ${theme.border}`, 
+                              borderRadius: '4px' 
                             }}
                           >
-                            {isMasterAcc ? '🔒 Protegida' : u.status === 'Ativo' ? '🚫 Desativar' : '✅ Reativar'}
+                            {u.status === 'Ativo' ? '🔒 Desativar' : '🔓 Ativar'}
                           </button>
 
                           {/* BOTÃO DE EXCLUSÃO (DESATIVADO PARA CONTA MASTER) */}
@@ -472,31 +613,77 @@ export default function AdminPanel({ user = null, onLogout = null }) {
         {/* MODAL / FORMULÁRIO DE CADASTRO E EDIÇÃO */}
         {showUserModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '12px', padding: '28px', maxWidth: '540px', width: '90%' }}>
-              <h3 style={{ marginTop: 0, fontSize: '1.4rem' }}>
-                {editingUserId ? "Alterar Permissões e Perfil do Usuário" : "+ Cadastrar Nova Conta no Sistema"}
+            <div style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '12px', padding: '28px', maxWidth: '580px', width: '92%', maxHeight: '90vh', overflowY: 'auto' }}>
+              <h3 style={{ marginTop: 0, fontSize: '1.4rem', borderBottom: `1px solid ${theme.border}`, paddingBottom: '12px' }}>
+                {editingUserId ? "Alterar Permissões, Perfil e Senha do Usuário" : "+ Cadastrar Novo Usuário / Funcionário"}
               </h3>
-              <form onSubmit={handleSaveUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              <form onSubmit={handleSaveUser} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+                
+                {/* NOME COMPLETO */}
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Nome Completo *</label>
-                  <input type="text" value={newName} onChange={e => setNewName(e.target.value)} required style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                  <input 
+                    type="text" 
+                    value={newName} 
+                    onChange={e => setNewName(e.target.value)} 
+                    placeholder="Ex: João da Silva"
+                    required 
+                    style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }} 
+                  />
                 </div>
 
+                {/* E-MAIL (LOGIN) */}
                 <div>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Endereço de E-mail (Login) *</label>
-                  <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Endereço de E-mail (Login de Acesso) *</label>
+                  <input 
+                    type="email" 
+                    value={newEmail} 
+                    onChange={e => setNewEmail(e.target.value)} 
+                    placeholder="usuario@jardinstatuape.com.br"
+                    required 
+                    style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }} 
+                  />
                 </div>
 
-                {!editingUserId && (
-                  <div>
-                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Senha Inicial *</label>
-                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Senha de acesso" required style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                {/* CAMPO DE SENHA (RESGATAR OU ALTERAR SENHA) */}
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>
+                    {editingUserId ? "🔑 Senha de Acesso (Resgatar / Alterar Senha) *" : "🔑 Senha Inicial de Acesso *"}
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      value={newPassword} 
+                      onChange={e => setNewPassword(e.target.value)} 
+                      placeholder="Digite a senha de acesso" 
+                      required 
+                      style={{ flex: 1, minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold' }} 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      title={showPassword ? "Ocultar senha" : "Exibir / Resgatar senha em texto limpo"}
+                      style={{ minHeight: '44px', padding: '0 14px', cursor: 'pointer', fontWeight: 'bold', backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '4px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      {showPassword ? "🙈 Ocultar" : "👁️ Resgatar Senha"}
+                    </button>
                   </div>
-                )}
+                  <small style={{ color: highContrast ? '#ffff00' : '#555', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
+                    {editingUserId 
+                      ? "🔒 Clique em 'Resgatar Senha' para visualizar a senha atual em texto limpo ou digite uma nova senha para alterá-la." 
+                      : "🔑 Defina a senha inicial que o novo usuário/funcionário utilizará para autenticação."}
+                  </small>
+                </div>
 
+                {/* PERFIL / NÍVEL DE PERMISSÃO */}
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Perfil / Nível de Permissão *</label>
-                  <select value={newRole} onChange={e => setNewRole(e.target.value)} style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', fontWeight: 'bold' }}>
+                  <select 
+                    value={newRole} 
+                    onChange={e => setNewRole(e.target.value)} 
+                    style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', fontWeight: 'bold' }}
+                  >
                     <option value="resident">🏡 Morador (Acesso restrito ao próprio Apto)</option>
                     <option value="doorman">🛡️ Portaria (Controle de encomendas e visitantes)</option>
                     <option value="janitor">🔧 Zeladoria (Acesso a ocorrências e manutenção)</option>
@@ -504,14 +691,86 @@ export default function AdminPanel({ user = null, onLogout = null }) {
                   </select>
                 </div>
 
+                {/* SELETORES DE BLOCO E APARTAMENTO (SUBSTITUI O CAMPO DE TEXTO LIVRE) */}
                 <div>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Unidade ou Setor Responsável</label>
-                  <input type="text" value={newApartment} onChange={e => setNewApartment(e.target.value)} placeholder="Ex: Bloco 1 - Apto 101 ou Portaria Social" style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>
+                    🏢 Unidade ou Setor Responsável (Seleção de Bloco & Apto) *
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: selectedBlock === 'Setor Operacional' ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.85rem', color: highContrast ? '#ffffff' : '#475569', display: 'block', marginBottom: '2px', fontWeight: 'bold' }}>
+                        Selecione o Bloco / Categoria:
+                      </span>
+                      <select 
+                        value={selectedBlock} 
+                        onChange={e => setSelectedBlock(e.target.value)}
+                        style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', fontWeight: 'bold' }}
+                      >
+                        <option value="Bloco 1 - Macieira">🏢 Bloco 1 - Macieira</option>
+                        <option value="Bloco 2 - Pereira">🏢 Bloco 2 - Pereira</option>
+                        <option value="Bloco 3 - Nogueira">🏢 Bloco 3 - Nogueira</option>
+                        <option value="Bloco 4 - Amoreira">🏢 Bloco 4 - Amoreira</option>
+                        <option value="Bloco 5 - Cerejeira">🏢 Bloco 5 - Cerejeira</option>
+                        <option value="Setor Operacional">🛡️ Setor Operacional / Administrativo</option>
+                      </select>
+                    </div>
+
+                    {selectedBlock !== 'Setor Operacional' ? (
+                      <div>
+                        <span style={{ fontSize: '0.85rem', color: highContrast ? '#ffffff' : '#475569', display: 'block', marginBottom: '2px', fontWeight: 'bold' }}>
+                          Selecione o Apartamento (340 Aptos):
+                        </span>
+                        <select 
+                          value={selectedApto} 
+                          onChange={e => setSelectedApto(e.target.value)}
+                          style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', fontWeight: 'bold' }}
+                        >
+                          {generateApartmentsList().map(apt => (
+                            <option key={apt.numero} value={apt.numero}>
+                              {apt.rotulo}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div>
+                        <span style={{ fontSize: '0.85rem', color: highContrast ? '#ffffff' : '#475569', display: 'block', marginBottom: '2px', fontWeight: 'bold' }}>
+                          Selecione o Setor Específico:
+                        </span>
+                        <select 
+                          value={selectedSetor} 
+                          onChange={e => setSelectedSetor(e.target.value)}
+                          style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', fontWeight: 'bold' }}
+                        >
+                          <option value="Portaria Social">🛡️ Portaria Social</option>
+                          <option value="Zeladoria Central">🔧 Zeladoria Central</option>
+                          <option value="Administração">👑 Administração / Síndico Geral</option>
+                          <option value="Gestão Central / TI">💻 Gestão Central / TI</option>
+                          <option value="Outro Setor Operacional">🏢 Outro Setor Operacional</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  <small style={{ color: highContrast ? '#ffff00' : '#555', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
+                    💡 Caixas seletoras vinculadas aos 5 blocos residenciais (340 unidades) ou aos setores operacionais da administração.
+                  </small>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', marginTop: '12px', justifyContent: 'flex-end' }}>
-                  <button type="button" onClick={() => setShowUserModal(false)} style={{ minHeight: '44px', padding: '8px 16px', cursor: 'pointer', backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '4px' }}>Cancelar</button>
-                  <button type="submit" style={{ minHeight: '44px', padding: '8px 20px', cursor: 'pointer', fontWeight: 'bold', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: 'none', borderRadius: '4px' }}>Salvar Alterações</button>
+                {/* BOTÕES DE AÇÃO DO MODAL */}
+                <div style={{ display: 'flex', gap: '12px', marginTop: '16px', justifyContent: 'flex-end' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowUserModal(false)} 
+                    style={{ minHeight: '44px', padding: '8px 18px', cursor: 'pointer', backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '4px', fontWeight: 'bold' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    style={{ minHeight: '44px', padding: '8px 24px', cursor: 'pointer', fontWeight: 'bold', backgroundColor: theme.btnPrimaryBg, color: theme.btnPrimaryText, border: 'none', borderRadius: '4px' }}
+                  >
+                    💾 Salvar Alterações
+                  </button>
                 </div>
               </form>
             </div>
@@ -525,35 +784,20 @@ export default function AdminPanel({ user = null, onLogout = null }) {
             <p>O condomínio é composto por <strong>5 Blocos</strong>, com 17 andares cada (4 apartamentos por andar = 68 unidades por bloco), totalizando <strong>340 apartamentos</strong>.</p>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '20px' }}>
-              <div style={{ border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '6px' }}>
-                <h3 style={{ margin: '0 0 8px 0' }}>🌳 Bloco 1 - Macieira</h3>
-                <small>68 Apartamentos (Aptos 11 ao 174)</small>
-                <div style={{ marginTop: '8px', fontWeight: 'bold', color: '#16a34a' }}>68 Moradores Cadastrados</div>
-              </div>
-
-              <div style={{ border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '6px' }}>
-                <h3 style={{ margin: '0 0 8px 0' }}>🍐 Bloco 2 - Pereira</h3>
-                <small>68 Apartamentos (Aptos 11 ao 174)</small>
-                <div style={{ marginTop: '8px', fontWeight: 'bold', color: '#16a34a' }}>68 Moradores Cadastrados</div>
-              </div>
-
-              <div style={{ border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '6px' }}>
-                <h3 style={{ margin: '0 0 8px 0' }}>🌰 Bloco 3 - Nogueira</h3>
-                <small>68 Apartamentos (Aptos 11 ao 174)</small>
-                <div style={{ marginTop: '8px', fontWeight: 'bold', color: '#16a34a' }}>68 Moradores Cadastrados</div>
-              </div>
-
-              <div style={{ border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '6px' }}>
-                <h3 style={{ margin: '0 0 8px 0' }}>🫐 Bloco 4 - Amoreira</h3>
-                <small>68 Apartamentos (Aptos 11 ao 174)</small>
-                <div style={{ marginTop: '8px', fontWeight: 'bold', color: '#16a34a' }}>68 Moradores Cadastrados</div>
-              </div>
-
-              <div style={{ border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '6px' }}>
-                <h3 style={{ margin: '0 0 8px 0' }}>🌸 Bloco 5 - Cerejeira</h3>
-                <small>68 Apartamentos (Aptos 11 ao 174)</small>
-                <div style={{ marginTop: '8px', fontWeight: 'bold', color: '#16a34a' }}>68 Moradores Cadastrados</div>
-              </div>
+              {[
+                { nome: 'Bloco 1 - Macieira', tipo: 'Residencial', aptos: 68, morador: 'Ana Oliveira (Apto 101)' },
+                { nome: 'Bloco 2 - Pereira', tipo: 'Residencial', aptos: 68, morador: 'Roberto Almeida (Apto 202)' },
+                { nome: 'Bloco 3 - Nogueira', tipo: 'Residencial', aptos: 68, morador: 'Vago / Disponível' },
+                { nome: 'Bloco 4 - Amoreira', tipo: 'Residencial', aptos: 68, morador: 'Vago / Disponível' },
+                { nome: 'Bloco 5 - Cerejeira', tipo: 'Residencial', aptos: 68, morador: 'Vago / Disponível' }
+              ].map((bloco, idx) => (
+                <div key={idx} style={{ padding: '16px', border: `1px solid ${theme.border}`, borderRadius: '8px', backgroundColor: theme.cardBg }}>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem' }}>🏢 {bloco.nome}</h3>
+                  <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>Tipo:</strong> {bloco.tipo}</p>
+                  <p style={{ margin: '4px 0', fontSize: '0.85rem' }}><strong>Total de Aptos:</strong> {bloco.aptos} unidades</p>
+                  <p style={{ margin: '4px 0', fontSize: '0.85rem', color: theme.badgeActiveText }}><strong>Exemplo:</strong> {bloco.morador}</p>
+                </div>
+              ))}
             </div>
           </section>
         )}
@@ -567,10 +811,10 @@ export default function AdminPanel({ user = null, onLogout = null }) {
           } catch (e) {}
 
           const defaultLogs = [
-            "[19-10-2026 18:00] Conta Master master@jardinstatuape.com.br cadastrou novo usuário no sistema com perfil de Administrador.",
-            "[19-10-2026 17:15] Usuario admin@jardinstatuape.com.br autenticado no painel.",
-            "[19-10-2026 16:40] Porteiro Carlos Silva registrou nova encomenda para o Bloco 1 - Apto 101 (Notificação por e-mail disparada).",
-            "[19-10-2026 15:20] Moradora Ana Oliveira confirmou a baixa/retirada de pacote no painel do morador."
+            `[${getBrtTimestamp()}] Conta Master master@jardinstatuape.com.br cadastrou novo usuário no sistema com perfil de Administrador.`,
+            `[07-11-2026 17:15] Usuario admin@jardinstatuape.com.br autenticado no painel.`,
+            `[07-11-2026 16:40] Porteiro Carlos Silva registrou nova encomenda para o Bloco 1 - Apto 101 (Notificação por e-mail disparada).`,
+            `[07-11-2026 15:20] Moradora Ana Oliveira confirmou a baixa/retirada de pacote no painel do morador.`
           ];
 
           const allLogs = [...customLogs, ...defaultLogs];
@@ -580,7 +824,7 @@ export default function AdminPanel({ user = null, onLogout = null }) {
               <h2 style={{ marginTop: 0, fontSize: '1.4rem' }}>Logs de Auditoria e Atividades do Sistema</h2>
               <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {allLogs.map((log, idx) => (
-                  <li key={idx} style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '0.95rem' }}>
+                  <li key={idx} style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '0.95rem', fontFamily: 'monospace' }}>
                     {log}
                   </li>
                 ))}
@@ -588,7 +832,6 @@ export default function AdminPanel({ user = null, onLogout = null }) {
             </section>
           );
         })()}
-
       </main>
     </div>
   );
