@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v14 - Sincronização com Logs de Auditoria) - CondAccess
+ * DeliveryAlert Component (v18 - Clean Package Card & Resilient Multi-User Persistence - Sincronização com Logs de Auditoria) - CondAccess
  * Componente React Acessível (WCAG 2.1 AA / WAI-ARIA) de Gestão de Portaria.
  * 
  * Novas Funcionalidades:
@@ -102,11 +102,7 @@ const getLocalPackages = () => {
     const raw = localStorage.getItem('condaccess_demo_pkgs');
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(pkg => ({
-      ...pkg,
-      received_by: formatOperatorName(pkg.received_by, user)
-    }));
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     return [];
   }
@@ -1002,7 +998,6 @@ export default function DeliveryAlert({
                         <strong style={{ fontSize: '1.2rem', color: theme.text }}>{pkg.description}</strong>
                         {pkg.tracking_code && <span>Código de Rastreio: <code>{pkg.tracking_code}</code></span>}
                         <small style={{ opacity: 0.8 }}>Recebido em: {formatBrtDateTime(pkg.received_at)}</small>
-                        {pkg.received_by && <small style={{ color: highContrast ? '#ffff00' : '#1d4ed8', fontWeight: 'bold' }}>📥 Recebido por: {formatOperatorName(pkg.received_by, user)}</small>}
                         {pkg.notes && <small style={{ fontStyle: 'italic', fontWeight: '600' }}>Obs: {pkg.notes}</small>}
                       </div>
                       <button onClick={() => handleOpenDeliverModal(pkg)} style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}>
@@ -1030,8 +1025,7 @@ export default function DeliveryAlert({
                   <div style={{ margin: '14px 0', padding: '12px', backgroundColor: highContrast ? '#222222' : '#f8fafc', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '0.95rem' }}>
                     <p style={{ margin: '0 0 4px 0' }}><strong>Item:</strong> {deliveringPkg.description}</p>
                     {deliveringPkg.tracking_code && <p style={{ margin: '0 0 4px 0' }}><strong>Rastreio:</strong> <code>{deliveringPkg.tracking_code}</code></p>}
-                    {deliveringPkg.notes && <p style={{ margin: '0 0 4px 0' }}><strong>Destino:</strong> {deliveringPkg.notes}</p>}
-                    {deliveringPkg.received_by && <p style={{ margin: 0, opacity: 0.85 }}><strong>Recebido na Portaria por:</strong> {formatOperatorName(deliveringPkg.received_by, user)}</p>}
+                    {deliveringPkg.notes && <p style={{ margin: 0 }}><strong>Destino:</strong> {deliveringPkg.notes}</p>}
                   </div>
 
                   <form onSubmit={handleConfirmDeliver} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
