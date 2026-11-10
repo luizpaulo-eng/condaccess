@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v20 - Data e Hora Completa na Entrada de Visitantes e Acessos) - CondAccess - CondAccess
+ * DeliveryAlert Component (v21 - Resolução Definitiva de Encomendas Permanentes e Tombstoning de Baixas) - CondAccess - CondAccess
  * Componente React Acessível (WCAG 2.1 AA / WAI-ARIA) de Gestão de Portaria e Painel do Morador.
  * 
  * Novas Funcionalidades e Regras de Segurança:
@@ -102,6 +102,28 @@ const formatVisitEntry = (timeStr) => {
   }
 };
 
+
+
+// Gerenciador de Lista de Baixas Permanentes (Tombstoning)
+// Impede que encomendas confirmadas como entregues voltem a ser exibidas na interface
+const getDeliveredPackageIds = () => {
+  try {
+    const raw = localStorage.getItem('condaccess_delivered_pkg_ids');
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch (e) {
+    return new Set();
+  }
+};
+
+const markPackageAsPermanentlyDelivered = (pkgId) => {
+  try {
+    const currentSet = getDeliveredPackageIds();
+    currentSet.add(pkgId);
+    localStorage.setItem('condaccess_delivered_pkg_ids', JSON.stringify(Array.from(currentSet)));
+  } catch (e) {}
+};
 
 const INITIAL_DEMO_PACKAGE = {
   id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
@@ -802,24 +824,33 @@ export default function DeliveryAlert({
       console.warn('Aviso: backend indisponível ou em carregamento:', err);
     }
 
+    const deliveredIds = getDeliveredPackageIds();
     let localPkgs = getLocalPackages();
-    if (localPkgs.length === 0 && apiData.length === 0) {
+
+    // Se o banco local nunca tiver sido inicializado (nem com baixas), inicializa uma única vez
+    const hasInitializedEver = localStorage.getItem('condaccess_pkgs_initialized');
+    if (!hasInitializedEver && localPkgs.length === 0 && apiData.length === 0 && deliveredIds.size === 0) {
       localPkgs = [INITIAL_DEMO_PACKAGE];
       saveLocalPackages(localPkgs);
+      try { localStorage.setItem('condaccess_pkgs_initialized', 'true'); } catch (e) {}
     }
 
-    const apiIds = new Set(apiData.map(p => p.id));
-    const apiKeys = new Set(apiData.map(p => `${p.apartment_id}_${(p.description || '').trim().toLowerCase()}`));
+    // Filtra encomendas da API que já foram confirmadas como entregues ou tombstoned
+    const validApiData = apiData.filter(p => p.status === 'received' && !deliveredIds.has(p.id));
+
+    const apiIds = new Set(validApiData.map(p => p.id));
+    const apiKeys = new Set(validApiData.map(p => `${p.apartment_id}_${(p.description || '').trim().toLowerCase()}`));
 
     const uniqueLocals = localPkgs.filter(p => {
       if (p.status !== 'received') return false;
+      if (deliveredIds.has(p.id)) return false;
       if (apiIds.has(p.id)) return false;
       const key = `${p.apartment_id}_${(p.description || '').trim().toLowerCase()}`;
       if (apiKeys.has(key)) return false;
       return true;
     });
 
-    const merged = [...apiData, ...uniqueLocals];
+    const merged = [...validApiData, ...uniqueLocals];
 
     setPackages(merged);
     const countMsg = merged.length === 0 
@@ -889,6 +920,9 @@ export default function DeliveryAlert({
     } catch (err) {
       console.warn('Aviso: baixa registrada localmente:', err);
     }
+
+    // Registra a baixa permanente no Tombstone Registry para nunca mais reaparecer
+    markPackageAsPermanentlyDelivered(pkgId);
 
     const currentLocals = getLocalPackages();
     const updatedLocals = currentLocals.filter(pkg => pkg.id !== pkgId);
