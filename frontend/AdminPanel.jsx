@@ -139,6 +139,27 @@ const getStoredUsersList = () => {
   return INITIAL_ADMIN_USERS;
 };
 
+
+const getStoredAuditLogs = () => {
+  try {
+    const raw = localStorage.getItem('condaccess_audit_logs');
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  const initialDefault = [
+    `[${getBrtTimestamp()}] Conta Master master@jardinstatuape.com.br cadastrou novo usuário no sistema com perfil de Administrador.`,
+    `[07-11-2026 17:15] Usuario admin@jardinstatuape.com.br autenticado no painel.`,
+    `[07-11-2026 16:40] Porteiro Carlos Silva registrou nova encomenda para o Bloco 1 - Apto 101 (Notificação por e-mail disparada).`,
+    `[07-11-2026 15:20] Moradora Ana Oliveira confirmou a baixa/retirada de pacote no painel do morador.`
+  ];
+  try {
+    localStorage.setItem('condaccess_audit_logs', JSON.stringify(initialDefault));
+  } catch (e) {}
+  return initialDefault;
+};
+
 const saveUsersList = (list) => {
   try {
     localStorage.setItem('condaccess_users_db', JSON.stringify(list));
@@ -147,6 +168,27 @@ const saveUsersList = (list) => {
 
 export default function AdminPanel({ user = null, onLogout = null }) {
   const [usersList, setUsersList] = useState(getStoredUsersList);
+  const [auditLogs, setAuditLogs] = useState(getStoredAuditLogs);
+  const [logPage, setLogPage] = useState(1);
+  const LOGS_PER_PAGE = 20;
+
+  // Atualiza logs ao alternar para a aba 'logs'
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      setAuditLogs(getStoredAuditLogs());
+      setLogPage(1);
+    }
+  }, [activeTab]);
+
+  // Função centralizada para registrar novos logs de auditoria
+  const recordAuditLog = (logEntry) => {
+    try {
+      const current = getStoredAuditLogs();
+      const updated = [logEntry, ...current];
+      localStorage.setItem('condaccess_audit_logs', JSON.stringify(updated));
+      setAuditLogs(updated);
+    } catch (e) {}
+  };
   const [activeTab, setActiveTab] = useState('users'); // 'users', 'units', 'logs'
   const [highContrast, setHighContrast] = useState(false);
   const [announcement, setAnnouncement] = useState('');
@@ -257,9 +299,7 @@ export default function AdminPanel({ user = null, onLogout = null }) {
         if (isPasswordChanged) {
           logText += ` (Senha de acesso alterada/redefinida).`;
         }
-        const rawLogs = localStorage.getItem('condaccess_audit_logs');
-        const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
-        localStorage.setItem('condaccess_audit_logs', JSON.stringify([logText, ...currentLogs]));
+        recordAuditLog(logText);
       } catch (err) {}
 
       const pwdNote = isPasswordChanged ? " 🔑 (Senha alterada com sucesso)" : "";
@@ -284,9 +324,7 @@ export default function AdminPanel({ user = null, onLogout = null }) {
       try {
         const timestamp = getBrtTimestamp();
         const logEntry = `[${timestamp}] Conta Master cadastrou novo usuário: "${newName}" (${newEmail}) com perfil ${newRole.toUpperCase()} em "${finalApartment}".`;
-        const rawLogs = localStorage.getItem('condaccess_audit_logs');
-        const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
-        localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+        recordAuditLog(logEntry);
       } catch (err) {}
 
       setUsersList(prev => [newUser, ...prev]);
@@ -297,9 +335,7 @@ export default function AdminPanel({ user = null, onLogout = null }) {
       try {
         const timestamp = getBrtTimestamp();
         const emailLogEntry = `[${timestamp}] Disparo de e-mail de boas-vindas enviado para ${newEmail.trim().toLowerCase()} (Serviço de E-mail/SMTP).`;
-        const rawLogs = localStorage.getItem('condaccess_audit_logs');
-        const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
-        localStorage.setItem('condaccess_audit_logs', JSON.stringify([emailLogEntry, ...currentLogs]));
+        recordAuditLog(emailLogEntry);
       } catch (err) {}
 
       setBannerMessage({ type: 'success', text: `${msg} — ${emailNotice}` });
@@ -327,9 +363,7 @@ export default function AdminPanel({ user = null, onLogout = null }) {
     try {
       const timestamp = getBrtTimestamp();
       const logEntry = `[${timestamp}] Conta Master alterou status do usuário "${currentName}" para ${newStatus.toUpperCase()}.`;
-      const rawLogs = localStorage.getItem('condaccess_audit_logs');
-      const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
-      localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+      recordAuditLog(logEntry);
     } catch (err) {}
 
     const msg = `Status do usuário "${currentName}" alterado para ${newStatus.toUpperCase()}.`;
@@ -358,9 +392,7 @@ export default function AdminPanel({ user = null, onLogout = null }) {
     try {
       const timestamp = getBrtTimestamp();
       const logEntry = `[${timestamp}] Conta Master excluiu o usuário "${currentName}" do sistema.`;
-      const rawLogs = localStorage.getItem('condaccess_audit_logs');
-      const currentLogs = rawLogs ? JSON.parse(rawLogs) : [];
-      localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+      recordAuditLog(logEntry);
     } catch (err) {}
 
     const msg = `Usuário "${currentName}" excluído com sucesso do sistema.`;
@@ -395,6 +427,99 @@ export default function AdminPanel({ user = null, onLogout = null }) {
     tableHeaderBg: '#f1f5f9',
     badgeActiveBg: '#dcfce7',
     badgeActiveText: '#166534',
+  };
+
+  
+  // Exporta backup dos logs em arquivo de texto formatado
+  const handleBackupLogs = () => {
+    try {
+      const timestamp = getBrtTimestamp().replace(/[: ]/g, '_');
+      const header = `================================================================================\n` +
+        `RELATÓRIO E BACKUP DE LOGS DE AUDITORIA E ATIVIDADES — CONDACCESS\n` +
+        `Condomínio Residencial Jardins do Tatuapé (5 Blocos / 340 Aptos)\n` +
+        `Data e Hora do Backup: [${getBrtTimestamp()}] (Horário Oficial de Brasília)\n` +
+        `Total de Registros Exportados: ${auditLogs.length} eventos\n` +
+        `Gerado por: ${user?.name || user?.email || 'Administrador Master'}\n` +
+        `================================================================================\n\n`;
+
+      const content = header + auditLogs.join('\n');
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `backup_logs_condaccess_${timestamp}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      const msg = `✅ Backup de ${auditLogs.length} registros de auditoria baixado com sucesso! Arquivo: backup_logs_condaccess_${timestamp}.txt`;
+      setBannerMessage({ type: 'success', text: msg });
+      setAnnouncement(msg);
+    } catch (err) {
+      alert('Erro ao gerar o arquivo de backup dos logs.');
+    }
+  };
+
+  // Exclui um registro individual de log
+  const handleDeleteSingleLog = (indexOnPage) => {
+    const totalPages = Math.ceil(auditLogs.length / LOGS_PER_PAGE) || 1;
+    const safePage = Math.min(Math.max(1, logPage), totalPages);
+    const globalIndex = (safePage - 1) * LOGS_PER_PAGE + indexOnPage;
+    const logItem = auditLogs[globalIndex];
+
+    if (window.confirm(`Deseja realmente excluir este registro de log?\n\n"${logItem}"`)) {
+      const updated = auditLogs.filter((_, i) => i !== globalIndex);
+      setAuditLogs(updated);
+      try {
+        localStorage.setItem('condaccess_audit_logs', JSON.stringify(updated));
+      } catch (e) {}
+
+      const newTotalPages = Math.ceil(updated.length / LOGS_PER_PAGE) || 1;
+      if (safePage > newTotalPages) {
+        setLogPage(newTotalPages);
+      }
+
+      const msg = '🗑️ Registro de log de auditoria excluído com sucesso.';
+      setBannerMessage({ type: 'info', text: msg });
+      setAnnouncement(msg);
+    }
+  };
+
+  // Exclui todos os registros de logs (limpeza com confirmação)
+  const handleClearAllLogs = () => {
+    if (auditLogs.length === 0) {
+      alert('Não existem registros de logs para excluir.');
+      return;
+    }
+
+    const confirmClear = window.confirm(
+      `⚠️ ATENÇÃO: Deseja realmente excluir TODOS os ${auditLogs.length} registros de logs de auditoria?\n\nEsta ação é irreversível. Recomendamos clicar em "Fazer Backup (.txt)" antes de continuar.`
+    );
+    if (!confirmClear) return;
+
+    const timestamp = getBrtTimestamp();
+    const cleanupLog = `[${timestamp}] Limpeza de todos os registros de auditoria executada pelo Administrador Master (${user?.email || 'master@jardinstatuape.com.br'}).`;
+    const newLogs = [cleanupLog];
+
+    setAuditLogs(newLogs);
+    setLogPage(1);
+    try {
+      localStorage.setItem('condaccess_audit_logs', JSON.stringify(newLogs));
+    } catch (e) {}
+
+    const msg = '🗑️ Todos os logs de auditoria foram limpos com sucesso. Um registro de auditoria da limpeza foi gravado.';
+    setBannerMessage({ type: 'info', text: msg });
+    setAnnouncement(msg);
+  };
+
+  // Recarrega os logs do localStorage
+  const handleRefreshLogs = () => {
+    const reloaded = getStoredAuditLogs();
+    setAuditLogs(reloaded);
+    const msg = `🔄 Lista de logs atualizada! Total de ${reloaded.length} registros.`;
+    setBannerMessage({ type: 'info', text: msg });
+    setAnnouncement(msg);
   };
 
   return (
@@ -804,31 +929,158 @@ export default function AdminPanel({ user = null, onLogout = null }) {
 
         {/* ABA 3: LOGS DE AUDITORIA */}
         {activeTab === 'logs' && (() => {
-          let customLogs = [];
-          try {
-            const raw = localStorage.getItem('condaccess_audit_logs');
-            if (raw) customLogs = JSON.parse(raw);
-          } catch (e) {}
-
-          const defaultLogs = [
-            `[${getBrtTimestamp()}] Conta Master master@jardinstatuape.com.br cadastrou novo usuário no sistema com perfil de Administrador.`,
-            `[07-11-2026 17:15] Usuario admin@jardinstatuape.com.br autenticado no painel.`,
-            `[07-11-2026 16:40] Porteiro Carlos Silva registrou nova encomenda para o Bloco 1 - Apto 101 (Notificação por e-mail disparada).`,
-            `[07-11-2026 15:20] Moradora Ana Oliveira confirmou a baixa/retirada de pacote no painel do morador.`
-          ];
-
-          const allLogs = [...customLogs, ...defaultLogs];
+          const totalLogs = auditLogs.length;
+          const totalPages = Math.ceil(totalLogs / LOGS_PER_PAGE) || 1;
+          const safePage = Math.min(Math.max(1, logPage), totalPages);
+          const startIndex = (safePage - 1) * LOGS_PER_PAGE;
+          const endIndex = Math.min(startIndex + LOGS_PER_PAGE, totalLogs);
+          const currentLogsSlice = auditLogs.slice(startIndex, endIndex);
 
           return (
             <section style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '24px' }}>
-              <h2 style={{ marginTop: 0, fontSize: '1.4rem' }}>Logs de Auditoria e Atividades do Sistema</h2>
-              <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {allLogs.map((log, idx) => (
-                  <li key={idx} style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '0.95rem', fontFamily: 'monospace' }}>
-                    {log}
-                  </li>
-                ))}
-              </ul>
+              {/* CABEÇALHO DA SEÇÃO DE LOGS & BOTÕES DE AÇÃO */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '16px' }}>
+                <div>
+                  <h2 style={{ marginTop: 0, marginBottom: '6px', fontSize: '1.4rem' }}>
+                    Logs de Auditoria e Atividades do Sistema
+                  </h2>
+                  <p style={{ margin: 0, opacity: 0.85, fontSize: '0.95rem' }}>
+                    Histórico cronológico de autenticações, cadastros, senhas, permissões, movimentações de encomendas e acessos na portaria.
+                  </p>
+                </div>
+
+                {/* BOTÕES: BACKUP, LIMPAR E RECARREGAR */}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={handleBackupLogs}
+                    style={{ minHeight: '44px', padding: '10px 18px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', backgroundColor: highContrast ? '#00ff00' : '#16a34a', color: highContrast ? '#000000' : '#ffffff', border: 'none', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    title="Baixar arquivo de backup com todos os registros de logs"
+                  >
+                    💾 Fazer Backup (.txt)
+                  </button>
+
+                  <button
+                    onClick={handleClearAllLogs}
+                    style={{ minHeight: '44px', padding: '10px 18px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', backgroundColor: theme.btnDangerBg, color: theme.btnDangerText, border: 'none', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    title="Excluir todos os registros de logs de auditoria"
+                  >
+                    🗑️ Limpar Todos os Logs
+                  </button>
+
+                  <button
+                    onClick={handleRefreshLogs}
+                    style={{ minHeight: '44px', padding: '10px 16px', fontWeight: '600', fontSize: '0.95rem', cursor: 'pointer', backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '6px' }}
+                    title="Recarregar registros mais recentes"
+                  >
+                    🔄 Recarregar
+                  </button>
+                </div>
+              </div>
+
+              {/* BARRA SUPERIOR DE PAGINAÇÃO E RESUMO */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', padding: '10px 14px', backgroundColor: highContrast ? '#1f1f1f' : '#f8fafc', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                <span style={{ fontSize: '0.95rem', fontWeight: '600' }}>
+                  📊 Total de <strong>{totalLogs}</strong> registros | Exibindo <strong>{totalLogs === 0 ? 0 : startIndex + 1}</strong> a <strong>{endIndex}</strong> (Máx. 20 por página)
+                </span>
+
+                {/* CONTROLES DE PÁGINA */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={() => setLogPage(prev => Math.max(1, prev - 1))}
+                    disabled={safePage <= 1}
+                    style={{ padding: '6px 14px', minHeight: '38px', fontWeight: 'bold', cursor: safePage <= 1 ? 'not-allowed' : 'pointer', opacity: safePage <= 1 ? 0.5 : 1, backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '4px' }}
+                  >
+                    ◀ Anterior
+                  </button>
+
+                  <span style={{ padding: '0 8px', fontSize: '0.95rem', fontWeight: 'bold' }}>
+                    Página {safePage} de {totalPages}
+                  </span>
+
+                  <button
+                    onClick={() => setLogPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={safePage >= totalPages}
+                    style={{ padding: '6px 14px', minHeight: '38px', fontWeight: 'bold', cursor: safePage >= totalPages ? 'not-allowed' : 'pointer', opacity: safePage >= totalPages ? 0.5 : 1, backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '4px' }}
+                  >
+                    Próxima ▶
+                  </button>
+                </div>
+              </div>
+
+              {/* LISTA DE REGISTROS DE AUDITORIA */}
+              {totalLogs === 0 ? (
+                <div style={{ padding: '32px', textAlign: 'center', opacity: 0.8 }}>
+                  <p style={{ fontSize: '1.1rem', margin: 0 }}>Nenhum registro de log de auditoria no momento.</p>
+                </div>
+              ) : (
+                <ul style={{ listStyleType: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {currentLogsSlice.map((log, idx) => (
+                    <li 
+                      key={idx} 
+                      style={{ 
+                        padding: '12px 16px', 
+                        border: `1px solid ${theme.border}`, 
+                        borderRadius: '6px',
+                        backgroundColor: highContrast ? '#111111' : '#ffffff',
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        flexWrap: 'wrap', 
+                        gap: '12px' 
+                      }}
+                    >
+                      <span style={{ fontSize: '0.92rem', fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', wordBreak: 'break-word', flex: 1 }}>
+                        {log}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteSingleLog(idx)}
+                        style={{ padding: '6px 12px', minHeight: '34px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: 'transparent', color: theme.btnDangerBg, border: `1px solid ${theme.btnDangerBg}`, borderRadius: '4px' }}
+                        title="Excluir este registro"
+                        aria-label={`Excluir registro de log`}
+                      >
+                        🗑️ Excluir
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* BARRA INFERIOR DE PAGINAÇÃO (QUANDO HÁ MAIS DE 1 PÁGINA) */}
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '20px', paddingTop: '16px', borderTop: `1px solid ${theme.border}` }}>
+                  <button
+                    onClick={() => setLogPage(1)}
+                    disabled={safePage <= 1}
+                    style={{ padding: '6px 12px', minHeight: '36px', fontWeight: 'bold', cursor: safePage <= 1 ? 'not-allowed' : 'pointer', opacity: safePage <= 1 ? 0.4 : 1, backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '4px' }}
+                  >
+                    ⏮ Primeira
+                  </button>
+                  <button
+                    onClick={() => setLogPage(prev => Math.max(1, prev - 1))}
+                    disabled={safePage <= 1}
+                    style={{ padding: '6px 14px', minHeight: '36px', fontWeight: 'bold', cursor: safePage <= 1 ? 'not-allowed' : 'pointer', opacity: safePage <= 1 ? 0.4 : 1, backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '4px' }}
+                  >
+                    ◀ Anterior
+                  </button>
+                  <span style={{ padding: '0 12px', fontSize: '0.95rem', fontWeight: 'bold' }}>
+                    Página {safePage} de {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setLogPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={safePage >= totalPages}
+                    style={{ padding: '6px 14px', minHeight: '36px', fontWeight: 'bold', cursor: safePage >= totalPages ? 'not-allowed' : 'pointer', opacity: safePage >= totalPages ? 0.4 : 1, backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '4px' }}
+                  >
+                    Próxima ▶
+                  </button>
+                  <button
+                    onClick={() => setLogPage(totalPages)}
+                    disabled={safePage >= totalPages}
+                    style={{ padding: '6px 12px', minHeight: '36px', fontWeight: 'bold', cursor: safePage >= totalPages ? 'not-allowed' : 'pointer', opacity: safePage >= totalPages ? 0.4 : 1, backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '4px' }}
+                  >
+                    Última ⏭
+                  </button>
+                </div>
+              )}
             </section>
           );
         })()}
