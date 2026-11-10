@@ -48,6 +48,27 @@ const saveLocalVisitors = (visits) => {
   } catch (e) {}
 };
 
+const getBrtTimestamp = () => {
+  try {
+    const now = new Date();
+    const d = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+    const t = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+    return `${d} ${t}`;
+  } catch (e) {
+    const now = new Date();
+    return now.toISOString();
+  }
+};
+
+const addAuditLog = (logEntry) => {
+  try {
+    const raw = localStorage.getItem('condaccess_audit_logs');
+    const currentLogs = raw ? JSON.parse(raw) : [];
+    localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+  } catch (err) {}
+};
+
+
 export default function VisitorManager({ isHighContrast = false }) {
   // Estado para armazenar a lista de visitas ativas (com persistência no localStorage)
   const [activeVisits, setActiveVisits] = useState(() => getLocalVisitors());
@@ -106,7 +127,11 @@ export default function VisitorManager({ isHighContrast = false }) {
     setBannerMessage(msg);
     setShowSuccessBanner(true);
 
-    // Limpar formulário
+    // Registra nos Logs de Auditoria do Sistema
+    const timestamp = getBrtTimestamp();
+    const logEntry = `[${timestamp}] Portaria registrou entrada de ${typeLabel.toLowerCase()}: "${name}" (Destino: ${selectedBlock} - Apto ${selectedApartment}).`;
+    addAuditLog(logEntry);
+
     setName('');
     setDocumentId('');
     setCompany('');
@@ -116,14 +141,21 @@ export default function VisitorManager({ isHighContrast = false }) {
 
   // Baixa / Registro de Saída
   const handleCheckout = (id, visitorName) => {
+    const targetVisit = activeVisits.find(visit => visit.id === id);
     const updatedVisits = activeVisits.filter(visit => visit.id !== id);
     setActiveVisits(updatedVisits);
     saveLocalVisitors(updatedVisits);
-    const msg = `Saída de ${visitorName} registrada com sucesso.`;
+    const msg = `✅ Saída de ${visitorName} registrada com sucesso.`;
     setAnnouncement(msg);
     setBannerMessage(msg);
     setShowSuccessBanner(true);
     setTimeout(() => setShowSuccessBanner(false), 4000);
+
+    // Registra nos Logs de Auditoria do Sistema
+    const timestamp = getBrtTimestamp();
+    const destInfo = targetVisit ? ` (Destino: ${targetVisit.block} - Apto ${targetVisit.apartment})` : '';
+    const logEntry = `[${timestamp}] Portaria registrou saída de visitante/prestador: "${visitorName}"${destInfo}.`;
+    addAuditLog(logEntry);
   };
 
   // Estilos de Alto Contraste vs Padrão
