@@ -168,28 +168,10 @@ const saveUsersList = (list) => {
 
 export default function AdminPanel({ user = null, onLogout = null }) {
   const [usersList, setUsersList] = useState(getStoredUsersList);
+  const [activeTab, setActiveTab] = useState('users'); // 'users', 'units', 'logs'
   const [auditLogs, setAuditLogs] = useState(getStoredAuditLogs);
   const [logPage, setLogPage] = useState(1);
   const LOGS_PER_PAGE = 20;
-
-  // Atualiza logs ao alternar para a aba 'logs'
-  useEffect(() => {
-    if (activeTab === 'logs') {
-      setAuditLogs(getStoredAuditLogs());
-      setLogPage(1);
-    }
-  }, [activeTab]);
-
-  // Função centralizada para registrar novos logs de auditoria
-  const recordAuditLog = (logEntry) => {
-    try {
-      const current = getStoredAuditLogs();
-      const updated = [logEntry, ...current];
-      localStorage.setItem('condaccess_audit_logs', JSON.stringify(updated));
-      setAuditLogs(updated);
-    } catch (e) {}
-  };
-  const [activeTab, setActiveTab] = useState('users'); // 'users', 'units', 'logs'
   const [highContrast, setHighContrast] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const [bannerMessage, setBannerMessage] = useState(null);
@@ -207,6 +189,24 @@ export default function AdminPanel({ user = null, onLogout = null }) {
   const [selectedBlock, setSelectedBlock] = useState('Bloco 1 - Macieira');
   const [selectedApto, setSelectedApto] = useState('101');
   const [selectedSetor, setSelectedSetor] = useState('Portaria Social');
+
+  // Função centralizada para registrar novos logs de auditoria
+  const recordAuditLog = (logEntry) => {
+    try {
+      const current = getStoredAuditLogs();
+      const updated = [logEntry, ...current];
+      localStorage.setItem('condaccess_audit_logs', JSON.stringify(updated));
+      setAuditLogs(updated);
+    } catch (e) {}
+  };
+
+  // Atualiza logs ao alternar para a aba 'logs'
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      setAuditLogs(getStoredAuditLogs());
+      setLogPage(1);
+    }
+  }, [activeTab]);
 
   // Atualiza localStorage sempre que usersList mudar
   useEffect(() => {
