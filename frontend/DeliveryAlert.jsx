@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v13) - CondAccess
+ * DeliveryAlert Component (v14 - Sincronização com Logs de Auditoria) - CondAccess
  * Componente React Acessível (WCAG 2.1 AA / WAI-ARIA) de Gestão de Portaria.
  * 
  * Novas Funcionalidades:
@@ -38,7 +38,8 @@ const INITIAL_DEMO_PACKAGE = {
   tracking_code: 'BR987654321',
   status: 'received',
   received_at: new Date().toISOString(),
-  notes: 'Deixado na portaria social'
+  notes: '[Bloco 1 - Apto 101] Deixado na portaria social',
+  received_by: 'Carlos Silva (Porteiro Social)'
 };
 
 const getLocalPackages = () => {
@@ -55,6 +56,27 @@ const saveLocalPackages = (pkgs) => {
     localStorage.setItem('condaccess_demo_pkgs', JSON.stringify(pkgs));
   } catch (e) {}
 };
+
+const getBrtTimestamp = () => {
+  try {
+    const now = new Date();
+    const d = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+    const t = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+    return `${d} ${t}`;
+  } catch (e) {
+    const now = new Date();
+    return now.toISOString();
+  }
+};
+
+const addAuditLog = (logEntry) => {
+  try {
+    const raw = localStorage.getItem('condaccess_audit_logs');
+    const currentLogs = raw ? JSON.parse(raw) : [];
+    localStorage.setItem('condaccess_audit_logs', JSON.stringify([logEntry, ...currentLogs]));
+  } catch (err) {}
+};
+
 
 const BLOCOS_CONDOMINIO = [
   { id: 1, nome: 'Bloco 1 - Macieira' },
@@ -162,6 +184,11 @@ function VisitorManagerSection({ isHighContrast = false }) {
     setBannerMessage(msg);
     setShowSuccessBanner(true);
 
+    // Registra nos Logs de Auditoria do Sistema
+    const timestamp = getBrtTimestamp();
+    const logEntry = `[${timestamp}] Portaria registrou entrada de ${typeLabel.toLowerCase()}: "${name}" (Destino: ${selectedBlock} - Apto ${selectedApartment}).`;
+    addAuditLog(logEntry);
+
     setName('');
     setDocumentId('');
     setCompany('');
@@ -170,6 +197,7 @@ function VisitorManagerSection({ isHighContrast = false }) {
   };
 
   const handleCheckout = (id, visitorName) => {
+    const targetVisit = activeVisits.find(visit => visit.id === id);
     const updatedVisits = activeVisits.filter(visit => visit.id !== id);
     setActiveVisits(updatedVisits);
     saveLocalVisitors(updatedVisits);
@@ -178,6 +206,12 @@ function VisitorManagerSection({ isHighContrast = false }) {
     setBannerMessage(msg);
     setShowSuccessBanner(true);
     setTimeout(() => setShowSuccessBanner(false), 4000);
+
+    // Registra nos Logs de Auditoria do Sistema
+    const timestamp = getBrtTimestamp();
+    const destInfo = targetVisit ? ` (Destino: ${targetVisit.block} - Apto ${targetVisit.apartment})` : '';
+    const logEntry = `[${timestamp}] Portaria registrou saída de visitante/prestador: "${visitorName}"${destInfo}.`;
+    addAuditLog(logEntry);
   };
 
   const themeStyles = {
@@ -450,6 +484,11 @@ export default function DeliveryAlert({
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Estados para o Modal de Confirmação de Retirada (Quem efetuou a retirada)
+  const [deliveringPkg, setDeliveringPkg] = useState(null);
+  const [receiverName, setReceiverName] = useState('');
+  const [receiverDoc, setReceiverDoc] = useState('');
+
   useEffect(() => {
     if (!selectedBloco) {
       setAptosDisponiveis([]);
@@ -513,10 +552,31 @@ export default function DeliveryAlert({
     fetchPackages();
   }, [fetchPackages]);
 
-  const handleDeliverPackage = async (packageId, packageDescription) => {
+  // Abre o modal de confirmação de retirada
+  const handleOpenDeliverModal = (pkg) => {
+    setDeliveringPkg(pkg);
+    setReceiverName('');
+    setReceiverDoc('');
+  };
+
+  // Confirma a retirada com registro de quem retirou e quem entregou
+  const handleConfirmDeliver = async (e) => {
+    if (e) e.preventDefault();
+    if (!deliveringPkg) return;
+    const cleanReceiver = receiverName.trim();
+    if (!cleanReceiver) {
+      alert('Por favor, informe o nome de quem efetuou a retirada.');
+      return;
+    }
+
+    const pkgId = deliveringPkg.id;
+    const pkgDesc = deliveringPkg.description;
+    const operatorName = user?.name || user?.email || (isPortaria ? 'Carlos Silva (Porteiro Social)' : 'Portaria Social');
+    const cleanDoc = receiverDoc.trim();
+
     try {
       await fetch(
-        `${API_BASE_URL}/packages/${packageId}/deliver?resident_id=${effectiveUserId}`,
+        `${API_BASE_URL}/packages/${pkgId}/deliver?resident_id=${effectiveUserId}`,
         { method: 'PUT', headers: { 'Accept': 'application/json' } }
       );
     } catch (err) {
@@ -524,13 +584,25 @@ export default function DeliveryAlert({
     }
 
     const currentLocals = getLocalPackages();
-    const updatedLocals = currentLocals.filter(pkg => pkg.id !== packageId);
+    const updatedLocals = currentLocals.filter(pkg => pkg.id !== pkgId);
     saveLocalPackages(updatedLocals);
 
-    setPackages(prev => prev.filter(pkg => pkg.id !== packageId));
-    const successMsg = `✅ Encomenda "${packageDescription}" confirmada como retirada com sucesso!`;
+    setPackages(prev => prev.filter(pkg => pkg.id !== pkgId));
+    const successMsg = `✅ Encomenda "${pkgDesc}" retirada com sucesso por "${cleanReceiver}"!`;
     setBannerMessage({ type: 'success', text: successMsg });
     setAnnouncement(successMsg);
+
+    // Registra nos Logs de Auditoria do Sistema com rastreabilidade total
+    const timestamp = getBrtTimestamp();
+    const unitInfo = deliveringPkg?.notes ? ` referente a ${deliveringPkg.notes}` : '';
+    const trackingInfo = deliveringPkg?.tracking_code ? ` (Rastreio: ${deliveringPkg.tracking_code})` : '';
+    const docInfo = cleanDoc ? ` [Doc/Vínculo: ${cleanDoc}]` : '';
+    const logEntry = `[${timestamp}] Retirada de encomenda na Portaria: "${pkgDesc}"${trackingInfo}${unitInfo}. Retirado por: "${cleanReceiver}"${docInfo}. Entregue pelo operador: [${operatorName}].`;
+    addAuditLog(logEntry);
+
+    setDeliveringPkg(null);
+    setReceiverName('');
+    setReceiverDoc('');
   };
 
   const handleRegisterPackage = async (evt) => {
@@ -545,6 +617,7 @@ export default function DeliveryAlert({
     const aptoTxt = selectedApto ? `Apto ${selectedApto}` : '101';
     const formattedNotes = notes ? `[${blocoTxt} - ${aptoTxt}] ${notes}` : `[${blocoTxt} - ${aptoTxt}]`;
 
+    const currentOperator = user?.name || user?.email || (isPortaria ? 'Carlos Silva (Porteiro Social)' : 'Portaria Social');
     const tempId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `pkg-${Date.now()}`;
     let savedPkg = {
       id: tempId,
@@ -553,7 +626,8 @@ export default function DeliveryAlert({
       tracking_code: trackingCode || null,
       notes: formattedNotes,
       status: 'received',
-      received_at: new Date().toISOString()
+      received_at: new Date().toISOString(),
+      received_by: currentOperator
     };
 
     try {
@@ -600,6 +674,12 @@ export default function DeliveryAlert({
     const successAlert = `✅ Nova encomenda "${description}" cadastrada com sucesso para o ${aptoTxt}!`;
     setBannerMessage({ type: 'success', text: successAlert });
     setAnnouncement(successAlert);
+
+    // Registra nos Logs de Auditoria do Sistema com operador responsável
+    const timestamp = getBrtTimestamp();
+    const trackingInfo = trackingCode ? ` (Rastreio: ${trackingCode})` : '';
+    const logEntry = `[${timestamp}] Encomenda recebida na Portaria por [${currentOperator}]: "${description}"${trackingInfo} destinada a [${blocoTxt} - ${aptoTxt}].`;
+    addAuditLog(logEntry);
 
     setDescription('');
     setTrackingCode('');
@@ -860,9 +940,10 @@ export default function DeliveryAlert({
                         <strong style={{ fontSize: '1.2rem', color: theme.text }}>{pkg.description}</strong>
                         {pkg.tracking_code && <span>Código de Rastreio: <code>{pkg.tracking_code}</code></span>}
                         <small style={{ opacity: 0.8 }}>Recebido em: {new Date(pkg.received_at).toLocaleString('pt-BR')}</small>
+                        {pkg.received_by && <small style={{ color: highContrast ? '#ffff00' : '#1d4ed8', fontWeight: 'bold' }}>📥 Recebido por: {pkg.received_by}</small>}
                         {pkg.notes && <small style={{ fontStyle: 'italic', fontWeight: '600' }}>Obs: {pkg.notes}</small>}
                       </div>
-                      <button onClick={() => handleDeliverPackage(pkg.id, pkg.description)} style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}>
+                      <button onClick={() => handleOpenDeliverModal(pkg)} style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}>
                         Confirmar Retirada
                       </button>
                     </li>
@@ -870,6 +951,81 @@ export default function DeliveryAlert({
                 </ul>
               )}
             </section>
+
+            {/* MODAL ACESSÍVEL DE CONFIRMAÇÃO DE RETIRADA */}
+            {deliveringPkg && (
+              <div 
+                role="dialog" 
+                aria-modal="true" 
+                aria-labelledby="modal-deliver-title" 
+                style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}
+              >
+                <div style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '12px', padding: '24px', maxWidth: '520px', width: '92%', color: theme.text, boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+                  <h3 id="modal-deliver-title" style={{ marginTop: 0, fontSize: '1.3rem', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>
+                    📦 Confirmar Retirada de Encomenda
+                  </h3>
+                  
+                  <div style={{ margin: '14px 0', padding: '12px', backgroundColor: highContrast ? '#222222' : '#f8fafc', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '0.95rem' }}>
+                    <p style={{ margin: '0 0 4px 0' }}><strong>Item:</strong> {deliveringPkg.description}</p>
+                    {deliveringPkg.tracking_code && <p style={{ margin: '0 0 4px 0' }}><strong>Rastreio:</strong> <code>{deliveringPkg.tracking_code}</code></p>}
+                    {deliveringPkg.notes && <p style={{ margin: '0 0 4px 0' }}><strong>Destino:</strong> {deliveringPkg.notes}</p>}
+                    {deliveringPkg.received_by && <p style={{ margin: 0, opacity: 0.85 }}><strong>Recebido na Portaria por:</strong> {deliveringPkg.received_by}</p>}
+                  </div>
+
+                  <form onSubmit={handleConfirmDeliver} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div>
+                      <label htmlFor="receiver-name-input" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>
+                        Nome de Quem Retirou *
+                      </label>
+                      <input 
+                        id="receiver-name-input"
+                        type="text" 
+                        value={receiverName} 
+                        onChange={e => setReceiverName(e.target.value)} 
+                        placeholder="Ex: Nome do morador ou autorizado" 
+                        required 
+                        autoFocus
+                        style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: `1px solid ${theme.border}`, backgroundColor: highContrast ? '#000000' : '#ffffff', color: theme.text, fontSize: '1rem', boxSizing: 'border-box' }} 
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="receiver-doc-input" style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>
+                        Documento (RG / CPF) ou Grau de Parentesco (Opcional)
+                      </label>
+                      <input 
+                        id="receiver-doc-input"
+                        type="text" 
+                        value={receiverDoc} 
+                        onChange={e => setReceiverDoc(e.target.value)} 
+                        placeholder="Ex: RG 12.345.678-9 ou Filho / Cônjuge" 
+                        style={{ width: '100%', minHeight: '44px', padding: '8px 12px', borderRadius: '4px', border: `1px solid ${theme.border}`, backgroundColor: highContrast ? '#000000' : '#ffffff', color: theme.text, fontSize: '1rem', boxSizing: 'border-box' }} 
+                      />
+                    </div>
+
+                    <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.8 }}>
+                      🛡️ <strong>Operador responsável pela entrega:</strong> {user?.name || user?.email || (isPortaria ? 'Carlos Silva (Porteiro Social)' : 'Portaria Social')}
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px', justifyContent: 'flex-end' }}>
+                      <button 
+                        type="button" 
+                        onClick={() => setDeliveringPkg(null)} 
+                        style={{ minHeight: '44px', padding: '8px 16px', cursor: 'pointer', backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: '4px' }}
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        type="submit" 
+                        style={{ minHeight: '44px', padding: '8px 20px', cursor: 'pointer', fontWeight: 'bold', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '4px' }}
+                      >
+                        Confirmar Baixa e Entrega
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
