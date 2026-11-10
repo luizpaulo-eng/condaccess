@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v19 - Controle de Acessos e Isolamento do Perfil Morador) - CondAccess
+ * DeliveryAlert Component (v20 - Data e Hora Completa na Entrada de Visitantes e Acessos) - CondAccess - CondAccess
  * Componente React Acessível (WCAG 2.1 AA / WAI-ARIA) de Gestão de Portaria e Painel do Morador.
  * 
  * Novas Funcionalidades e Regras de Segurança:
@@ -84,6 +84,21 @@ const formatBrtDateTime = (dateStr) => {
     return isNaN(d.getTime()) ? dateStr : d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   } catch (e) {
     return dateStr;
+  }
+};
+
+// Formata a data e horário de entrada de visitantes e prestadores (com suporte a retrocompatibilidade)
+const formatVisitEntry = (timeStr) => {
+  if (!timeStr) return '';
+  const s = String(timeStr).trim();
+  // Se já contém data (ex: '10/11/2026 07:18' ou '10-11-2026 07:18'), exibe diretamente
+  if (s.includes('/') || s.includes('-')) return s;
+  // Se contiver apenas horário (ex: '07:18' ou '14:30'), combina com a data atual no horário de Brasília
+  try {
+    const today = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    return `${today} ${s}`;
+  } catch (e) {
+    return s;
   }
 };
 
@@ -175,7 +190,7 @@ const INITIAL_DEMO_VISITS = [
     company: 'Manutenção de Elevadores Otis',
     block: 'Bloco 2 - Pereira',
     apartment: '304',
-    entry_time: '14:30',
+    entry_time: '10/11/2026 14:30',
     status: 'active'
   },
   {
@@ -186,7 +201,7 @@ const INITIAL_DEMO_VISITS = [
     company: 'Particular',
     block: 'Bloco 1 - Macieira',
     apartment: '101',
-    entry_time: '15:15',
+    entry_time: '10/11/2026 15:15',
     status: 'active'
   }
 ];
@@ -246,7 +261,12 @@ function VisitorManagerSection({ isHighContrast = false }) {
       company: company.trim() || (visitorType === 'visitor' ? 'Particular' : 'Indefinida'),
       block: selectedBlock,
       apartment: selectedApartment,
-      entry_time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      entry_time: (() => {
+        const now = new Date();
+        const d = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        const t = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+        return `${d} ${t}`;
+      })(),
       status: 'active'
     };
 
@@ -498,7 +518,7 @@ function VisitorManagerSection({ isHighContrast = false }) {
                     <td style={{ padding: '12px' }}>
                       {visit.block} — <strong>Apto {visit.apartment}</strong>
                     </td>
-                    <td style={{ padding: '12px' }}>{visit.entry_time}</td>
+                    <td style={{ padding: '12px', fontWeight: '500' }}>{formatVisitEntry(visit.entry_time)}</td>
                     <td style={{ padding: '12px', textAlign: 'right' }}>
                       <button 
                         onClick={() => handleCheckout(visit.id, visit.visitor_name)}
@@ -645,7 +665,7 @@ function ResidentVisitorsSection({
                       {visit.company || 'Particular'}
                     </td>
                     <td style={{ padding: '12px', fontWeight: 'bold' }}>
-                      🕒 {visit.entry_time}
+                      🕒 {formatVisitEntry(visit.entry_time)}
                     </td>
                     <td style={{ padding: '12px', textAlign: 'center' }}>
                       <span style={{
