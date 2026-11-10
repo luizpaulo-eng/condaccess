@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 /**
- * DeliveryAlert Component (v18 - Clean Package Card & Resilient Multi-User Persistence - Sincronização com Logs de Auditoria) - CondAccess
- * Componente React Acessível (WCAG 2.1 AA / WAI-ARIA) de Gestão de Portaria.
+ * DeliveryAlert Component (v19 - Controle de Acessos e Isolamento do Perfil Morador) - CondAccess
+ * Componente React Acessível (WCAG 2.1 AA / WAI-ARIA) de Gestão de Portaria e Painel do Morador.
  * 
- * Novas Funcionalidades:
- * 1. Abas de Navegação na Portaria:
- *    - "📦 Gestão de Encomendas" (Controle de correspondências, entregas e baixas)
- *    - "🚪 Portaria Social & Visitantes" (Controle de visitantes, prestadores de serviço e entregadores)
- * 2. Módulo Integrado de Controle de Visitantes (VisitorManager) com suporte a Alto Contraste.
- * 3. Persistência Local e Sincronização com API FastAPI/Supabase em nuvem.
- * 4. Acessibilidade Total: WAI-ARIA (aria-live, tablist, tab), atalhos por teclado e modo de Alto Contraste.
+ * Novas Funcionalidades e Regras de Segurança:
+ * 1. Isolamento Estrito do Perfil Morador:
+ *    - O morador visualiza única e exclusivamente as encomendas destinadas ao seu Bloco e Apartamento.
+ *    - Botão "Confirmar Retirada" removido do perfil de Morador (controle exclusivo dos operadores da Portaria).
+ *    - Selo de status informativo e seguro: "📦 Disponível para Retirada na Portaria Social".
+ * 2. Visualização de Acessos Ativos na Unidade (Visitantes, Entregadores e Prestadores):
+ *    - O morador acompanha em tempo real na aba "🚪 Acessos Ativos na Minha Unidade" quem está autorizado e no condomínio para seu apartamento.
+ * 3. Acessibilidade Universal (WCAG 2.1 AA):
+ *    - Suporte a Alto Contraste, navegação por teclado e sintetizadores de voz (aria-live, tablist, tab).
  */
 
 const getApiBaseUrl = () => {
@@ -134,6 +136,24 @@ const addAuditLog = (logEntry) => {
   } catch (err) {}
 };
 
+
+
+// Utilitário para extrair com precisão Bloco e Apartamento de qualquer formato de string
+const extractBlockAndApt = (unitStr) => {
+  if (!unitStr) return { blockNum: null, aptNum: null };
+  const str = String(unitStr).trim();
+  const bMatch = str.match(/Bloco\s*([1-5])/i);
+  const blockNum = bMatch ? bMatch[1] : null;
+  const nums = str.match(/\b\d+\b/g) || [];
+  let aptNum = null;
+  for (const n of nums) {
+    if (n !== blockNum) {
+      aptNum = n;
+      break;
+    }
+  }
+  return { blockNum, aptNum };
+};
 
 const BLOCOS_CONDOMINIO = [
   { id: 1, nome: 'Bloco 1 - Macieira' },
@@ -500,6 +520,158 @@ function VisitorManagerSection({ isHighContrast = false }) {
 }
 
 /* ==========================================================================
+   SUB-COMPONENTE: RESIDENT VISITORS SECTION (ACESSO EXCLUSIVO DO MORADOR)
+   ========================================================================== */
+function ResidentVisitorsSection({ 
+  isHighContrast = false, 
+  user = null, 
+  userUnit = '', 
+  userBlock = null, 
+  userApt = null 
+}) {
+  const [activeVisits, setActiveVisits] = useState(() => getLocalVisitors());
+
+  useEffect(() => {
+    const handleStorage = () => setActiveVisits(getLocalVisitors());
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Filtra as visitas ativas estritamente para o bloco e apartamento do morador
+  const unitVisits = activeVisits.filter(visit => {
+    if (visit.status !== 'active') return false;
+    const { blockNum: vBlock, aptNum: vApt } = extractBlockAndApt(`${visit.block} ${visit.apartment}`);
+    if (userBlock && userApt && vBlock && vApt) {
+      return userBlock === vBlock && userApt === vApt;
+    }
+    if (userUnit && `${visit.block} ${visit.apartment}`.toLowerCase().includes(userUnit.toLowerCase())) {
+      return true;
+    }
+    return false;
+  });
+
+  const theme = {
+    cardBg: isHighContrast ? '#111111' : '#ffffff',
+    border: isHighContrast ? '#ffff00' : '#e2e8f0',
+    text: isHighContrast ? '#ffffff' : '#1e293b'
+  };
+
+  const getBadgeStyle = (type) => ({
+    padding: '4px 10px',
+    borderRadius: '4px',
+    fontSize: '0.85rem',
+    fontWeight: 'bold',
+    backgroundColor: isHighContrast 
+      ? (type === 'contractor' ? '#ff9900' : type === 'delivery_person' ? '#00ffff' : '#00ff00')
+      : (type === 'contractor' ? '#ffe4e6' : type === 'delivery_person' ? '#e0f2fe' : '#dcfce7'),
+    color: isHighContrast 
+      ? '#000000'
+      : (type === 'contractor' ? '#9f1239' : type === 'delivery_person' ? '#075985' : '#166534')
+  });
+
+  return (
+    <section aria-label="Acessos e visitas ativas na sua unidade">
+      <div style={{ backgroundColor: theme.cardBg, border: `2px solid ${theme.border}`, borderRadius: '8px', padding: '24px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <h2 style={{ fontSize: '1.4rem', margin: '0 0 4px 0' }}>
+              🚪 Acessos e Visitas Ativas na sua Unidade ({unitVisits.length})
+            </h2>
+            <p style={{ margin: 0, fontSize: '0.95rem', opacity: 0.85 }}>
+              Monitoramento em tempo real de visitantes sociais, entregadores e prestadores de serviço com entrada liberada pela portaria para <strong>{userUnit || 'seu apartamento'}</strong>.
+            </p>
+          </div>
+          <span style={{
+            padding: '6px 14px',
+            borderRadius: '20px',
+            fontSize: '0.85rem',
+            fontWeight: 'bold',
+            backgroundColor: isHighContrast ? '#003300' : '#dcfce7',
+            color: isHighContrast ? '#00ff00' : '#166534',
+            border: `1px solid ${isHighContrast ? '#00ff00' : '#86efac'}`
+          }}>
+            ● Sincronizado com a Portaria Social
+          </span>
+        </div>
+
+        {unitVisits.length === 0 ? (
+          <div style={{
+            padding: '24px',
+            backgroundColor: isHighContrast ? '#000000' : '#f8fafc',
+            border: `1px solid ${theme.border}`,
+            borderRadius: '6px',
+            textAlign: 'center'
+          }}>
+            <p style={{ fontSize: '1.15rem', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+              🟢 Nenhum visitante, prestador ou entregador com acesso ativo no momento.
+            </p>
+            <p style={{ margin: 0, fontSize: '0.95rem', opacity: 0.8 }}>
+              Quando a portaria autorizar a entrada de alguém direcionado ao seu apartamento, o registro e o horário de entrada serão exibidos aqui instantaneamente.
+            </p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: isHighContrast ? '2px solid #ffff00' : '2px solid #e2e8f0' }}>
+                  <th style={{ padding: '12px' }}>Nome / Documento</th>
+                  <th style={{ padding: '12px' }}>Tipo de Acesso</th>
+                  <th style={{ padding: '12px' }}>Empresa / Vínculo</th>
+                  <th style={{ padding: '12px' }}>Entrada Liberada</th>
+                  <th style={{ padding: '12px', textAlign: 'center' }}>Status Atual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unitVisits.map((visit) => (
+                  <tr key={visit.id} style={{ borderBottom: isHighContrast ? '1px solid #333333' : '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '12px' }}>
+                      <strong style={{ fontSize: '1.05rem' }}>{visit.visitor_name}</strong>
+                      {visit.document_id && (
+                        <div>
+                          <small style={{ opacity: 0.8 }}>Doc: {visit.document_id}</small>
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={getBadgeStyle(visit.visitor_type)}>
+                        {visit.visitor_type === 'contractor' 
+                          ? '🔧 Prestador de Serviço' 
+                          : visit.visitor_type === 'delivery_person' 
+                          ? '🛵 Entregador' 
+                          : '🏡 Visitante Social'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', fontWeight: '500' }}>
+                      {visit.company || 'Particular'}
+                    </td>
+                    <td style={{ padding: '12px', fontWeight: 'bold' }}>
+                      🕒 {visit.entry_time}
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        fontSize: '0.85rem',
+                        fontWeight: 'bold',
+                        backgroundColor: isHighContrast ? '#003300' : '#ecfdf5',
+                        color: isHighContrast ? '#00ff00' : '#047857',
+                        border: `1px solid ${isHighContrast ? '#00ff00' : '#a7f3d0'}`
+                      }}>
+                        🟢 No Condomínio
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ==========================================================================
    COMPONENTE PRINCIPAL: DELIVERY ALERT (COM ABAS DE NAVEGAÇÃO)
    ========================================================================== */
 export default function DeliveryAlert({ 
@@ -519,11 +691,43 @@ export default function DeliveryAlert({
   const user = getStoredUser();
   const isPortaria = !user || ['portaria', 'doorman', 'administrator', 'admin'].includes(user?.role);
 
+  // Identificação e extração da unidade do usuário logado
+  const userUnit = user?.apartment || user?.unidade || '';
+  const { blockNum: userBlock, aptNum: userApt } = extractBlockAndApt(userUnit);
+
   const effectiveApartmentId = aptProp || user?.apartmentId || DEFAULT_APARTMENT_ID;
   const effectiveUserId = userPropId || user?.id || DEFAULT_USER_ID;
 
   // Estado da Aba Ativa ('deliveries' ou 'visitors')
   const [activeTab, setActiveTab] = useState('deliveries');
+  const [activeVisitsCount, setActiveVisitsCount] = useState(0);
+
+  // Monitora contagem de visitas ativas em tempo real
+  useEffect(() => {
+    const updateVisitsCount = () => {
+      const allVisits = getLocalVisitors();
+      if (isPortaria) {
+        setActiveVisitsCount(allVisits.filter(v => v.status === 'active').length);
+      } else {
+        const myVisits = allVisits.filter(v => {
+          if (v.status !== 'active') return false;
+          const { blockNum: vBlock, aptNum: vApt } = extractBlockAndApt(`${v.block} ${v.apartment}`);
+          if (userBlock && userApt && vBlock && vApt) {
+            return userBlock === vBlock && userApt === vApt;
+          }
+          if (userUnit && `${v.block} ${v.apartment}`.toLowerCase().includes(userUnit.toLowerCase())) {
+            return true;
+          }
+          return false;
+        });
+        setActiveVisitsCount(myVisits.length);
+      }
+    };
+
+    updateVisitsCount();
+    window.addEventListener('storage', updateVisitsCount);
+    return () => window.removeEventListener('storage', updateVisitsCount);
+  }, [isPortaria, userBlock, userApt, userUnit]);
 
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -608,6 +812,32 @@ export default function DeliveryAlert({
   useEffect(() => {
     fetchPackages();
   }, [fetchPackages]);
+
+  // Filtra as encomendas: Portaria/Admin vê todas do condomínio. Morador vê estritamente as da sua unidade.
+  const displayedPackages = packages.filter(pkg => {
+    if (isPortaria) return true; // Portaria e Administradores têm visão global
+
+    if (user?.apartmentId && pkg.apartment_id && user.apartmentId === pkg.apartment_id) {
+      return true;
+    }
+
+    if (!userUnit && !userBlock && !userApt) {
+      return true; // Fallback se o cadastro não contiver unidade especificada
+    }
+
+    const pkgText = `${pkg.notes || ''} ${pkg.description || ''} ${pkg.apartment || ''}`;
+    const { blockNum: pkgBlock, aptNum: pkgApt } = extractBlockAndApt(pkgText);
+
+    if (userBlock && userApt && pkgBlock && pkgApt) {
+      return userBlock === pkgBlock && userApt === pkgApt;
+    }
+
+    if (userUnit && pkgText.toLowerCase().includes(userUnit.toLowerCase())) {
+      return true;
+    }
+
+    return false;
+  });
 
   // Abre o modal de confirmação de retirada
   const handleOpenDeliverModal = (pkg) => {
@@ -763,9 +993,12 @@ export default function DeliveryAlert({
       {/* CABEÇALHO */}
       <header style={{ borderBottom: `2px solid ${theme.border}`, paddingBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', margin: 0 }}>CondAccess - Painel da Portaria</h1>
+          <h1 style={{ fontSize: '1.8rem', margin: 0 }}>
+            {isPortaria ? "CondAccess - Painel da Portaria" : "CondAccess - Painel do Morador"}
+          </h1>
           <p style={{ margin: '4px 0 0 0', opacity: 0.8, fontSize: '0.95rem' }}>
             Condomínio Residencial Jardins do Tatuapé
+            {!isPortaria && userUnit && <span> • <strong>{userUnit}</strong></span>}
           </p>
         </div>
 
@@ -820,8 +1053,8 @@ export default function DeliveryAlert({
         </div>
       )}
 
-      {/* ABAS DE NAVEGAÇÃO NA PORTARIA */}
-      <nav aria-label="Navegação da Portaria" style={{ marginTop: '20px', borderBottom: `2px solid ${theme.border}` }}>
+      {/* ABAS DE NAVEGAÇÃO (PORTARIA OU MORADOR) */}
+      <nav aria-label={isPortaria ? "Navegação da Portaria" : "Navegação do Morador"} style={{ marginTop: '20px', borderBottom: `2px solid ${theme.border}` }}>
         <div role="tablist" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
             role="tab"
@@ -846,36 +1079,34 @@ export default function DeliveryAlert({
               minHeight: '48px'
             }}
           >
-            📦 Gestão de Encomendas
+            {isPortaria ? `📦 Gestão de Encomendas (${displayedPackages.length})` : `📦 Minhas Encomendas (${displayedPackages.length})`}
           </button>
 
-          {isPortaria && (
-            <button
-              role="tab"
-              aria-selected={activeTab === 'visitors'}
-              aria-controls="tabpanel-visitors"
-              id="tab-visitors"
-              onClick={() => setActiveTab('visitors')}
-              style={{
-                padding: '12px 20px',
-                fontSize: '1.05rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                border: 'none',
-                borderBottom: activeTab === 'visitors' 
-                  ? (highContrast ? '4px solid #ffff00' : '4px solid #2563eb')
-                  : '4px solid transparent',
-                backgroundColor: activeTab === 'visitors' ? theme.cardBg : 'transparent',
-                color: activeTab === 'visitors' 
-                  ? (highContrast ? '#ffff00' : '#2563eb') 
-                  : theme.text,
-                borderRadius: '6px 6px 0 0',
-                minHeight: '48px'
-              }}
-            >
-              🚪 Portaria Social & Visitantes
-            </button>
-          )}
+          <button
+            role="tab"
+            aria-selected={activeTab === 'visitors'}
+            aria-controls="tabpanel-visitors"
+            id="tab-visitors"
+            onClick={() => setActiveTab('visitors')}
+            style={{
+              padding: '12px 20px',
+              fontSize: '1.05rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              border: 'none',
+              borderBottom: activeTab === 'visitors' 
+                ? (highContrast ? '4px solid #ffff00' : '4px solid #2563eb')
+                : '4px solid transparent',
+              backgroundColor: activeTab === 'visitors' ? theme.cardBg : 'transparent',
+              color: activeTab === 'visitors' 
+                ? (highContrast ? '#ffff00' : '#2563eb') 
+                : theme.text,
+              borderRadius: '6px 6px 0 0',
+              minHeight: '48px'
+            }}
+          >
+            {isPortaria ? `🚪 Portaria Social & Visitantes (${activeVisitsCount})` : `🚪 Acessos Ativos na Minha Unidade (${activeVisitsCount})`}
+          </button>
         </div>
       </nav>
 
@@ -980,7 +1211,17 @@ export default function DeliveryAlert({
 
             {/* LISTAGEM DE ENCOMENDAS PENDENTES */}
             <section aria-label="Suas encomendas pendentes">
-              <h2 style={{ fontSize: '1.4rem', marginBottom: '16px' }}>Entregas Aguardando Retirada ({packages.length})</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                <h2 style={{ fontSize: '1.4rem', margin: 0 }}>
+                  {isPortaria ? `Entregas Aguardando Retirada (${displayedPackages.length})` : `Suas Encomendas Aguardando Retirada (${displayedPackages.length})`}
+                </h2>
+                {!isPortaria && (
+                  <span style={{ fontSize: '0.85rem', opacity: 0.85, fontStyle: 'italic' }}>
+                    * Somente a portaria pode dar baixa física na entrega
+                  </span>
+                )}
+              </div>
+
               {loading ? (
                 <p style={{ fontSize: '1.1rem' }}>Carregando encomendas do servidor...</p>
               ) : error ? (
@@ -988,11 +1229,18 @@ export default function DeliveryAlert({
                   <p style={{ margin: 0, fontWeight: 'bold' }}>{error}</p>
                   <button onClick={fetchPackages} style={{ marginTop: '10px', padding: '8px 12px', cursor: 'pointer' }}>Tentar Novamente</button>
                 </div>
-              ) : packages.length === 0 ? (
-                <p style={{ fontSize: '1.1rem' }}>{isPortaria ? "Nenhuma encomenda pendente na portaria." : "Nenhuma encomenda pendente para seu apartamento."}</p>
+              ) : displayedPackages.length === 0 ? (
+                <div style={{ padding: '24px', backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', textAlign: 'center' }}>
+                  <p style={{ fontSize: '1.15rem', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+                    {isPortaria ? "Nenhuma encomenda pendente na portaria." : `Nenhuma encomenda pendente para seu apartamento (${userUnit || 'Sua Unidade'}).`}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '0.95rem', opacity: 0.8 }}>
+                    {isPortaria ? "Novos pacotes recebidos aparecerão nesta lista." : "Assim que a portaria receber uma correspondência ou encomenda para a sua unidade, ela será listada aqui."}
+                  </p>
+                </div>
               ) : (
                 <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {packages.map((pkg) => (
+                  {displayedPackages.map((pkg) => (
                     <li key={pkg.id} style={{ padding: '20px', border: `2px solid ${theme.border}`, borderRadius: '8px', backgroundColor: theme.cardBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <strong style={{ fontSize: '1.2rem', color: theme.text }}>{pkg.description}</strong>
@@ -1000,9 +1248,36 @@ export default function DeliveryAlert({
                         <small style={{ opacity: 0.8 }}>Recebido em: {formatBrtDateTime(pkg.received_at)}</small>
                         {pkg.notes && <small style={{ fontStyle: 'italic', fontWeight: '600' }}>Obs: {pkg.notes}</small>}
                       </div>
-                      <button onClick={() => handleOpenDeliverModal(pkg)} style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}>
-                        Confirmar Retirada
-                      </button>
+
+                      {/* Controle de Baixa: Exclusivo da Portaria. Morador visualiza selo informativo */}
+                      {isPortaria ? (
+                        <button 
+                          onClick={() => handleOpenDeliverModal(pkg)} 
+                          style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}
+                        >
+                          Confirmar Retirada
+                        </button>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                          <span style={{ 
+                            padding: '8px 14px', 
+                            borderRadius: '6px', 
+                            fontWeight: 'bold', 
+                            fontSize: '0.9rem', 
+                            backgroundColor: highContrast ? '#ffff00' : '#dbeafe', 
+                            color: highContrast ? '#000000' : '#1e40af', 
+                            border: highContrast ? '2px solid #ffff00' : '1px solid #bfdbfe', 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '6px' 
+                          }}>
+                            📦 Disponível na Portaria
+                          </span>
+                          <small style={{ fontSize: '0.8rem', opacity: 0.85, maxWidth: '240px', textAlign: 'right' }}>
+                            Retirada presencial na portaria mediante apresentação de documento
+                          </small>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -1088,7 +1363,17 @@ export default function DeliveryAlert({
         {/* ABA 2: CONTROLE DE VISITANTES E PRESTADORES */}
         {activeTab === 'visitors' && (
           <div id="tabpanel-visitors" role="tabpanel" aria-labelledby="tab-visitors">
-            <VisitorManagerSection isHighContrast={highContrast} />
+            {isPortaria ? (
+              <VisitorManagerSection isHighContrast={highContrast} />
+            ) : (
+              <ResidentVisitorsSection 
+                isHighContrast={highContrast} 
+                user={user} 
+                userUnit={userUnit}
+                userBlock={userBlock}
+                userApt={userApt}
+              />
+            )}
           </div>
         )}
 
