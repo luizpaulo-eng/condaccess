@@ -31,6 +31,20 @@ const API_BASE_URL = getApiBaseUrl();
 const DEFAULT_APARTMENT_ID = '123e4567-e89b-12d3-a456-426614174000';
 const DEFAULT_USER_ID = '98765432-e89b-12d3-a456-426614174000';
 
+// Formata o identificador do operador para exibição amigável, convertendo UUIDs padrão de demonstração para nome legível
+const formatOperatorName = (operator) => {
+  if (!operator) return 'Carlos Silva (Porteiro Social)';
+  const opStr = String(operator).trim();
+  if (
+    opStr === DEFAULT_USER_ID ||
+    opStr === '98765432-e89b-12d3-a456-426614174000' ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(opStr)
+  ) {
+    return 'Carlos Silva (Porteiro Social)';
+  }
+  return opStr;
+};
+
 const INITIAL_DEMO_PACKAGE = {
   id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
   apartment_id: DEFAULT_APARTMENT_ID,
@@ -45,7 +59,13 @@ const INITIAL_DEMO_PACKAGE = {
 const getLocalPackages = () => {
   try {
     const raw = localStorage.getItem('condaccess_demo_pkgs');
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(pkg => ({
+      ...pkg,
+      received_by: formatOperatorName(pkg.received_by)
+    }));
   } catch (e) {
     return [];
   }
@@ -940,7 +960,7 @@ export default function DeliveryAlert({
                         <strong style={{ fontSize: '1.2rem', color: theme.text }}>{pkg.description}</strong>
                         {pkg.tracking_code && <span>Código de Rastreio: <code>{pkg.tracking_code}</code></span>}
                         <small style={{ opacity: 0.8 }}>Recebido em: {new Date(pkg.received_at).toLocaleString('pt-BR')}</small>
-                        {pkg.received_by && <small style={{ color: highContrast ? '#ffff00' : '#1d4ed8', fontWeight: 'bold' }}>📥 Recebido por: {pkg.received_by}</small>}
+                        {pkg.received_by && <small style={{ color: highContrast ? '#ffff00' : '#1d4ed8', fontWeight: 'bold' }}>📥 Recebido por: {formatOperatorName(pkg.received_by)}</small>}
                         {pkg.notes && <small style={{ fontStyle: 'italic', fontWeight: '600' }}>Obs: {pkg.notes}</small>}
                       </div>
                       <button onClick={() => handleOpenDeliverModal(pkg)} style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}>
@@ -969,7 +989,7 @@ export default function DeliveryAlert({
                     <p style={{ margin: '0 0 4px 0' }}><strong>Item:</strong> {deliveringPkg.description}</p>
                     {deliveringPkg.tracking_code && <p style={{ margin: '0 0 4px 0' }}><strong>Rastreio:</strong> <code>{deliveringPkg.tracking_code}</code></p>}
                     {deliveringPkg.notes && <p style={{ margin: '0 0 4px 0' }}><strong>Destino:</strong> {deliveringPkg.notes}</p>}
-                    {deliveringPkg.received_by && <p style={{ margin: 0, opacity: 0.85 }}><strong>Recebido na Portaria por:</strong> {deliveringPkg.received_by}</p>}
+                    {deliveringPkg.received_by && <p style={{ margin: 0, opacity: 0.85 }}><strong>Recebido na Portaria por:</strong> {formatOperatorName(deliveringPkg.received_by)}</p>}
                   </div>
 
                   <form onSubmit={handleConfirmDeliver} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
