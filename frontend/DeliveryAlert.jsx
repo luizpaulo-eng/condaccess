@@ -32,18 +32,59 @@ const DEFAULT_APARTMENT_ID = '123e4567-e89b-12d3-a456-426614174000';
 const DEFAULT_USER_ID = '98765432-e89b-12d3-a456-426614174000';
 
 // Formata o identificador do operador para exibição amigável, convertendo UUIDs padrão de demonstração para nome legível
-const formatOperatorName = (operator) => {
-  if (!operator) return 'Carlos Silva (Porteiro Social)';
-  const opStr = String(operator).trim();
-  if (
-    opStr === DEFAULT_USER_ID ||
-    opStr === '98765432-e89b-12d3-a456-426614174000' ||
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(opStr)
-  ) {
+// Formata e resolve o nome amigável do operador a partir de nome, e-mail ou UUID
+const formatOperatorName = (operator, currentUser = null) => {
+  if (!operator) {
+    if (currentUser?.name || currentUser?.email) return currentUser.name || currentUser.email;
     return 'Carlos Silva (Porteiro Social)';
   }
+  const opStr = String(operator).trim();
+
+  // Se já for um e-mail ou texto comum (não-UUID), retorna diretamente
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(opStr)) {
+    return opStr;
+  }
+
+  // Se for UUID, verifica primeiro se é o próprio usuário logado no momento
+  if (currentUser && (currentUser.id === opStr || opStr === DEFAULT_USER_ID)) {
+    if (currentUser.name || currentUser.email) return currentUser.name || currentUser.email;
+  }
+
+  // Verifica no cadastro geral de usuários salvos (condaccess_users_db)
+  try {
+    const rawUsers = localStorage.getItem('condaccess_users_db');
+    if (rawUsers) {
+      const users = JSON.parse(rawUsers);
+      const matched = users.find(u => u.id === opStr || u.email === opStr);
+      if (matched && (matched.name || matched.email)) {
+        return matched.name || matched.email;
+      }
+    }
+  } catch (e) {}
+
+  // Fallback padrão se for o ID de demonstração da portaria
+  if (opStr === DEFAULT_USER_ID || opStr === '98765432-e89b-12d3-a456-426614174000') {
+    return 'Carlos Silva (Porteiro Social)';
+  }
+
   return opStr;
 };
+
+// Formata datas para o Horário Oficial de Brasília (America/Sao_Paulo / UTC-3)
+const formatBrtDateTime = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    let iso = String(dateStr).trim();
+    if (!iso.endsWith('Z') && !iso.includes('+') && !iso.includes('-0')) {
+      iso = iso + 'Z';
+    }
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? dateStr : d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  } catch (e) {
+    return dateStr;
+  }
+};
+
 
 const INITIAL_DEMO_PACKAGE = {
   id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
@@ -64,7 +105,7 @@ const getLocalPackages = () => {
     if (!Array.isArray(parsed)) return [];
     return parsed.map(pkg => ({
       ...pkg,
-      received_by: formatOperatorName(pkg.received_by)
+      received_by: formatOperatorName(pkg.received_by, user)
     }));
   } catch (e) {
     return [];
@@ -672,7 +713,8 @@ export default function DeliveryAlert({
         if (returnedPkg && returnedPkg.id) {
           savedPkg = {
             ...returnedPkg,
-            notes: returnedPkg.notes || formattedNotes
+            notes: returnedPkg.notes || formattedNotes,
+            received_by: currentOperator // Preserva o nome/e-mail do operador atual em vez do UUID da API
           };
         }
       }
@@ -959,8 +1001,8 @@ export default function DeliveryAlert({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <strong style={{ fontSize: '1.2rem', color: theme.text }}>{pkg.description}</strong>
                         {pkg.tracking_code && <span>Código de Rastreio: <code>{pkg.tracking_code}</code></span>}
-                        <small style={{ opacity: 0.8 }}>Recebido em: {new Date(pkg.received_at).toLocaleString('pt-BR')}</small>
-                        {pkg.received_by && <small style={{ color: highContrast ? '#ffff00' : '#1d4ed8', fontWeight: 'bold' }}>📥 Recebido por: {formatOperatorName(pkg.received_by)}</small>}
+                        <small style={{ opacity: 0.8 }}>Recebido em: {formatBrtDateTime(pkg.received_at)}</small>
+                        {pkg.received_by && <small style={{ color: highContrast ? '#ffff00' : '#1d4ed8', fontWeight: 'bold' }}>📥 Recebido por: {formatOperatorName(pkg.received_by, user)}</small>}
                         {pkg.notes && <small style={{ fontStyle: 'italic', fontWeight: '600' }}>Obs: {pkg.notes}</small>}
                       </div>
                       <button onClick={() => handleOpenDeliverModal(pkg)} style={{ minHeight: '48px', padding: '10px 18px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', backgroundColor: theme.btnSuccessBg, color: theme.btnSuccessText, border: 'none', borderRadius: '6px' }}>
@@ -989,7 +1031,7 @@ export default function DeliveryAlert({
                     <p style={{ margin: '0 0 4px 0' }}><strong>Item:</strong> {deliveringPkg.description}</p>
                     {deliveringPkg.tracking_code && <p style={{ margin: '0 0 4px 0' }}><strong>Rastreio:</strong> <code>{deliveringPkg.tracking_code}</code></p>}
                     {deliveringPkg.notes && <p style={{ margin: '0 0 4px 0' }}><strong>Destino:</strong> {deliveringPkg.notes}</p>}
-                    {deliveringPkg.received_by && <p style={{ margin: 0, opacity: 0.85 }}><strong>Recebido na Portaria por:</strong> {formatOperatorName(deliveringPkg.received_by)}</p>}
+                    {deliveringPkg.received_by && <p style={{ margin: 0, opacity: 0.85 }}><strong>Recebido na Portaria por:</strong> {formatOperatorName(deliveringPkg.received_by, user)}</p>}
                   </div>
 
                   <form onSubmit={handleConfirmDeliver} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
